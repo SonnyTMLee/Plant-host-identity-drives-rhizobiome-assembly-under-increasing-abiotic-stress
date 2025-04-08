@@ -1,0 +1,285 @@
+QIIME Code Biogeographical Project:
+ssh bv32@headnode.beocat.ksu.edu
+conda activate qiime2-amplicon-2024.5 
+----------------------------------------------------------------------------------------------------
+How I Trained my Classifier:
+sbatch SILVA138.sh
+
+qiime feature-classifier fit-classifier-naive-bayes \
+  --i-reference-reads /bulk/leet1/Share_LeeLab/00_RESOURCES/Markergene_Classifiers/16S/KSU_IGF/silva_138_training/silva-138-ssu-nr99-dna.qza \
+  --i-reference-taxonomy /bulk/leet1/Share_LeeLab/00_RESOURCES/Markergene_Classifiers/16S/KSU_IGF/silva_138_training/silva-138-ssu-nr99-tax.qza \
+  --o-classifier /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Leaf/silva-138-ssu-nr99-classifier.qza
+
+----------------------------------------------------------------------------------------------------
+Bulk Soil:
+Completed 9-30-2024
+cd /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Soil_Final
+0. Download the data
+~/bin/bs download project -i 404334132 -o /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_RAWDATA/00_BIOGEOGRAPHICAL_SAMPLING
+
+Allow others to access the sequence data:
+chgrp ksu-biol-ari * -R
+chmod g+w * -R
+
+Download and delete the json file from the raw datafile
+
+Get the fast Q files out of their subfolders:
+shopt -s globstar
+mv **/* . 
+find . -type d -empty -delete
+1.Import the data
+
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_RAWDATA/00_BIOGEOGRAPHICAL_SAMPLING \
+  --input-format CasavaOneEightLanelessPerSampleDirFmt \
+  --output-path /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Soil_Final/demux-paired-end.qza
+2. Generate a summary of the reads
+ 
+qiime demux summarize --i-data demux-paired-end.qza --o-visualization demux-paired-end.qzv
+
+
+3. Trim primers and Adaptors
+sbatch solicut.sh
+
+qiime cutadapt trim-paired --i-demultiplexed-sequences demux-paired-end.qza --p-cores 4 --p-front-f ^GTGCCAGCMGCCGCGGTAA --p-front-r ^GGACTACHVGGGTWTCTAAT --p-error-rate 0.1 --p-discard-untrimmed True --o-trimmed-sequences demux-primer-trimmed-end_0.1.qza
+4. Summary of Reads after trimming
+qiime demux summarize --i-data demux-primer-trimmed-end_0.1.qza --o-visualization demux-primer-trimmed-end_0.1.qzv
+
+5. Deionize with DADA2
+sbatch SoilCutDADA2.sh
+
+qiime dada2 denoise-paired --i-demultiplexed-seqs demux-primer-trimmed-end_0.1.qza --p-trunc-len-f 270 --p-trunc-len-r 250 --p-trim-left-f 0 --p-trim-left-r 0 --p-n-threads 10 --o-table table.qza --o-representative-sequences rep-seqs.qza --o-denoising-stats denoising-stats.qza
+6. Summarize the feature table and corresponding feature
+qiime feature-table summarize --i-table table.qza --o-visualization table.qzv --m-sample-metadata-file BS_Soil_Metadata.tsv
+
+7. Summarize the Statistics and the Quality Control
+qiime metadata tabulate --m-input-file denoising-stats.qza --o-visualization denoising-stats.qzv
+8. Generate a Tree for Phylogenetic Diversity Analysis
+sbatch Tree.sh
+
+qiime phylogeny align-to-tree-mafft-fasttree --i-sequences rep-seqs.qza --o-alignment aligned-rep-seqs.qza --o-masked-alignment masked-aligned-rep-seqs.qza --o-tree unrooted-tree.qza --o-rooted-tree rooted-tree.qza
+9. Generate and extract Alpha and Beta diversity matrix
+sbatch Diversity.sh
+
+qiime diversity core-metrics-phylogenetic --i-phylogeny rooted-tree.qza --i-table table.qza --p-sampling-depth 15000 --m-metadata-file BS_Soil_Metadata.tsv --output-dir core-metrics-results
+
+mkdir bray_curtis_distance_matrix
+qiime tools extract --input-path /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Soil_Final/core-metrics-results/bray_curtis_distance_matrix.qza --output-path bray_curtis_distance_matrix
+10. Alpha Diversity Among Groups
+qiime diversity alpha-group-significance --i-alpha-diversity core-metrics-results/observed_features_vector.qza --m-metadata-file BS_Soil_Metadata.tsv --o-visualization core-metrics-results/observed_otus_vector-group-significance.qzv
+
+qiime diversity alpha-group-significance --i-alpha-diversity core-metrics-results/faith_pd_vector.qza --m-metadata-file BS_Soil_Metadata.tsv --o-visualization core-metrics-results/faith-pd-group-significance.qzv
+
+qiime diversity alpha-group-significance --i-alpha-diversity core-metrics-results/shannon_vector.qza --m-metadata-file BS_Soil_Metadata.tsv --o-visualization core-metrics-results/shannon-group-significance.qzv
+11. PERMANOVA
+qiime diversity beta-group-significance --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza --m-metadata-file BS_Soil_Metadata.tsv --m-metadata-column location --o-visualization core-metrics-results/bray_curtis-location-significance.qzv
+
+qiime diversity beta-group-significance --i-distance-matrix core-metrics-results/weighted_unifrac_distance_matrix.qza --m-metadata-file BS_Soil_Metadata.tsv --m-metadata-column location --o-visualization core-metrics-results/weighted_unifrac-location-significance.qzv
+12. Alpha Rarefraction
+sbatch  RareSoil.sh
+
+qiime diversity alpha-rarefaction --i-table table.qza --i-phylogeny rooted-tree.qza --p-max-depth 15000 --m-metadata-file BS_Soil_Metadata.tsv --o-visualization core-metrics-results/alpha-rarefaction.qzv
+13. Taxonomic Analysis
+sbatch TAX138_2.sh
+
+qiime feature-classifier classify-sklearn \
+  --i-classifier /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Leaf/silva-138-ssu-nr99-classifier.qza \
+  --i-reads /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Soil_Final/rep-seqs.qza \
+  --o-classification /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Soil_Final/taxonomy.qza
+
+qiime metadata tabulate --m-input-file taxonomy.qza --o-visualization taxonomy_silva138.qzv
+
+qiime taxa barplot --i-table table.qza --i-taxonomy taxonomy.qza --m-metadata-file BS_Soil_Metadata.tsv --o-visualization taxa-bar-plots_silva138.qzv
+
+----------------------------------------------------------------------------------------------------
+14. Stochasticity
+
+cd /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Soil_Final
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file BS_Soil_Metadata_Ecotype.tsv \
+  --m-metadata-column ecotype \
+  --p-method permanova \
+  --p-pairwise \
+  --o-visualization core-metrics-results/permanova-ecotype.qzv
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file BS_Soil_Metadata_Ecotype.tsv \
+  --m-metadata-column ecotype \
+  --p-method permdisp \
+  --p-pairwise \
+  --o-visualization core-metrics-results/beta-dispersion-ecotype.qzv
+—-------------
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file BS_Soil_Metadata.tsv \
+  --m-metadata-column location \
+  --p-method permanova \
+  --p-pairwise \
+  --o-visualization core-metrics-results/permanova-location-new.qzv
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file BS_Soil_Metadata.tsv \
+  --m-metadata-column location \
+  --p-method permdisp \
+  --p-pairwise \
+  --o-visualization core-metrics-results/beta-dispersion-location-new.qzv
+
+—--------------
+
+qiime feature-table relative-frequency \
+  --i-table table.qza \
+  --o-relative-frequency-table table-relative-frequency-new.qza
+
+qiime longitudinal volatility \
+  --i-table table-relative-frequency-new.qza \
+  --m-metadata-file BS_Soil_Metadata_7.tsv \
+  --p-state-column custom_order \
+  --p-default-metric shannon \
+  --p-default-group-column location \
+  --o-visualization core-metrics-results/volatility-location-shannon.qzv
+
+
+Rhizobiome:
+Completed 10-2-2024
+cd /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Root_Final
+0. Download the data
+~/bin/bs download project -i 421549275 -o /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_RAWDATA/00_BS_ROOT_RAWDATA
+Allow others to access the sequence data:
+chgrp ksu-biol-ari * -R
+chmod g+w * -R
+
+Download and delete the json file from the raw datafile
+
+Get the fast Q files out of their subfolders:
+shopt -s globstar
+mv **/* . 
+find . -type d -empty -delete
+1.Import the data
+sbatch Upload.sh
+
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_RAWDATA/00_BS_ROOT_RAWDATA \
+  --input-format CasavaOneEightLanelessPerSampleDirFmt \
+  --output-path /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Root_Final/demux-paired-end.qza
+2. Generate a summary of the reads
+ 
+sbatch Paired.sh
+
+qiime demux summarize --i-data demux-paired-end.qza --o-visualization demux-paired-end.qzv
+
+3. Trim primers and Adaptors
+sbatch rootcut.sh
+
+qiime cutadapt trim-paired --i-demultiplexed-sequences demux-paired-end.qza --p-cores 4 --p-front-f ^GTGCCAGCMGCCGCGGTAA --p-front-r ^GGACTACHVGGGTWTCTAAT --p-error-rate 0.1 --p-discard-untrimmed True --o-trimmed-sequences demux-primer-trimmed-end_0.1.qza
+4. Summary of Reads after trimming
+qiime demux summarize --i-data demux-primer-trimmed-end_0.1.qza --o-visualization demux-primer-trimmed-end_0.1.qzv
+
+5. Deionize with DADA2
+sbatch RootCutDADA2.sh
+
+qiime dada2 denoise-paired --i-demultiplexed-seqs demux-primer-trimmed-end_0.1.qza --p-trunc-len-f 270 --p-trunc-len-r 250 --p-trim-left-f 0 --p-trim-left-r 0 --p-n-threads 10 --o-table table.qza --o-representative-sequences rep-seqs.qza --o-denoising-stats denoising-stats.qza
+6. Summarize the feature table and corresponding feature
+qiime feature-table summarize --i-table table.qza --o-visualization table.qzv --m-sample-metadata-file BS_Root_Metadata.tsv
+
+7. Summarize the Statistics and the Quality Control
+qiime metadata tabulate --m-input-file denoising-stats.qza --o-visualization denoising-stats.qzv
+8. Generate a Tree for Phylogenetic Diversity Analysis
+sbatch TreeRoot.sh
+
+qiime phylogeny align-to-tree-mafft-fasttree --i-sequences rep-seqs.qza --o-alignment aligned-rep-seqs.qza --o-masked-alignment masked-aligned-rep-seqs.qza --o-tree unrooted-tree.qza --o-rooted-tree rooted-tree.qza
+9. Generate and extract Alpha and Beta diversity matrix
+sbatch RootDiversity.sh
+
+qiime diversity core-metrics-phylogenetic --i-phylogeny rooted-tree.qza --i-table table.qza --p-sampling-depth 15000 --m-metadata-file BS_Root_Metadata.tsv --output-dir core-metrics-results
+
+mkdir bray_curtis_distance_matrix
+qiime tools extract --input-path /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Root_Final/core-metrics-results/bray_curtis_distance_matrix.qza --output-path bray_curtis_distance_matrix
+10. Alpha Diversity Among Groups
+qiime diversity alpha-group-significance --i-alpha-diversity core-metrics-results/observed_features_vector.qza --m-metadata-file BS_Root_Metadata.tsv --o-visualization core-metrics-results/observed_otus_vector-group-significance.qzv
+
+qiime diversity alpha-group-significance --i-alpha-diversity core-metrics-results/faith_pd_vector.qza --m-metadata-file BS_Root_Metadata.tsv --o-visualization core-metrics-results/faith-pd-group-significance.qzv
+
+qiime diversity alpha-group-significance --i-alpha-diversity core-metrics-results/shannon_vector.qza --m-metadata-file BS_Root_Metadata.tsv --o-visualization core-metrics-results/shannon-group-significance.qzv
+11. PERMANOVA
+qiime diversity beta-group-significance --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza --m-metadata-file BS_Root_Metadata.tsv --m-metadata-column location --o-visualization core-metrics-results/bray_curtis-location-significance.qzv
+
+qiime diversity beta-group-significance --i-distance-matrix core-metrics-results/weighted_unifrac_distance_matrix.qza --m-metadata-file BS_Root_Metadata.tsv --m-metadata-column location --o-visualization core-metrics-results/weighted_unifrac-location-significance.qzv
+12. Alpha Rarefraction
+sbatch  RareRoot.sh
+
+qiime diversity alpha-rarefaction --i-table table.qza --i-phylogeny rooted-tree.qza --p-max-depth 15000 --m-metadata-file BS_Root_Metadata.tsv --o-visualization core-metrics-results/alpha-rarefaction.qzv
+13. Taxonomic Analysis
+sbatch ROOT_TAX138_2.sh
+
+qiime feature-classifier classify-sklearn \
+  --i-classifier /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Leaf/silva-138-ssu-nr99-classifier.qza \
+  --i-reads /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Root_Final/rep-seqs.qza \
+  --o-classification /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Root_Final/taxonomy.qza
+
+qiime metadata tabulate --m-input-file taxonomy.qza --o-visualization taxonomy_silva138.qzv
+
+qiime taxa barplot --i-table table.qza --i-taxonomy taxonomy.qza --m-metadata-file BS_Root_Metadata.tsv --o-visualization taxa-bar-plots_silva138.qzv
+—---------------------------------------------------------------------------------------
+14. Stochasticity
+
+cd /bulk/leet1/Share_LeeLab/Andropogon_microbiome/00_BS_Root_Final
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file BS_Root_Metadata_Ecotype.tsv \
+  --m-metadata-column ecotype \
+  --p-method permanova \
+  --p-pairwise \
+  --o-visualization core-metrics-results/permanova-ecotype.qzv
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file BS_Root_Metadata_Ecotype.tsv \
+  --m-metadata-column ecotype \
+  --p-method permdisp \
+  --p-pairwise \
+  --o-visualization core-metrics-results/beta-dispersion-ecotype.qzv
+—--------------------------
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file BS_Root_Metadata.tsv \
+  --m-metadata-column location \
+  --p-method permanova \
+  --p-pairwise \
+  --o-visualization core-metrics-results/permanova-location-new.qzv
+
+
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/bray_curtis_distance_matrix.qza \
+  --m-metadata-file BS_Root_Metadata.tsv \
+  --m-metadata-column location \
+  --p-method permdisp \
+  --p-pairwise \
+  --o-visualization core-metrics-results/beta-dispersion-location-new.qzv
+—-------------------
+qiime feature-table relative-frequency \
+  --i-table table.qza \
+  --o-relative-frequency-table table-relative-frequency-new.qza
+
+qiime longitudinal volatility \
+  --i-table table-relative-frequency-new.qza \
+  --m-metadata-file BS_ROOT_Metadata_7.tsv \
+  --p-state-column custom_order \
+  --p-default-metric shannon \
+  --p-default-group-column location \
+  --o-visualization core-metrics-results/volatility-location-shannon.qzv
+
+
+Post Sequencing ASV Level 6 and 7 csv Files:
+Removed AR (Due to scattered clustering), Metadata, Chloroplasts, Mitochondria, [Unresolved], Eukarya, the Control, and Unassigned ASVs
+Changed index to SampleID, Unassigned at the Domain level
+	
+
+
+
+
