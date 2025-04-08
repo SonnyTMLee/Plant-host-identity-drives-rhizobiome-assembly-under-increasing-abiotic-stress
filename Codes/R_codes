@@ -1,0 +1,2366 @@
+setwd("/Users/brookevogt/Desktop/Biogeographical_New")
+R Studio Version 4.4.2
+
+nMDS Plots:
+
+Local Soil:
+library(cluster)
+library(vegan)
+library(ggplot2)
+library(dplyr)
+# Step 1: Load the OTU data and metadata
+otu_data <- read.csv("level-6.csv", row.names = 1)  # Assuming OTU data is in level-7.csv
+metadata <- read.csv("Metadata.csv")  # Load the metadata file
+# Step 2: Create the Bray-Curtis dissimilarity matrix
+dissimilarity_matrix <- vegdist(otu_data, method = "bray")
+# Step 3: Perform NMDS
+nmds <- metaMDS(dissimilarity_matrix, distance = "bray", k = 2)  # k is the number of dimensions
+# Step 4: Extract NMDS scores
+nmds_data <- as.data.frame(scores(nmds))
+nmds_data$SampleID <- rownames(nmds_data)  # Ensure SampleID is included for joining
+# Step 5: Ensure SampleID is character in metadata
+metadata$SampleID <- as.character(metadata$SampleID)
+# Step 6: Extract the first three letters of the SampleID as the Site
+metadata <- metadata %>%
+  mutate(Site = substr(SampleID, 1, 3))  # Extract first three characters as Site
+# Step 7: Join the NMDS data with the metadata to include the PR and Site columns
+plot_data <- nmds_data %>%
+  inner_join(metadata, by = "SampleID")
+# Step 8: Determine the best number of clusters based on silhouette score
+silhouette_scores <- data.frame(ClusterCount = integer(), AverageSilhouette = numeric())
+for (k in 2:10) {  # Try cluster counts from 2 to 10
+  set.seed(123)  # For reproducibility
+  kmeans_result <- kmeans(nmds_data[, 1:2], centers = k)  # Apply k-means clustering
+  # Calculate silhouette scores
+  sil_scores <- silhouette(kmeans_result$cluster, dissimilarity_matrix)
+  # Convert silhouette scores to a data frame
+  sil_df <- as.data.frame(sil_scores)
+  # Calculate the average silhouette score for the current number of clusters
+  avg_silhouette <- mean(sil_df[, "sil_width"])
+  # Append the results to the silhouette_scores data frame
+  silhouette_scores <- rbind(silhouette_scores, data.frame(ClusterCount = k, AverageSilhouette = avg_silhouette))
+}
+# Print silhouette scores for different cluster counts
+print(silhouette_scores)
+# Step 9: Find the number of clusters with the highest silhouette score
+best_cluster_count <- silhouette_scores %>%
+  filter(AverageSilhouette == max(AverageSilhouette)) %>%
+  pull(ClusterCount)
+print(paste("Best number of clusters based on silhouette score:", best_cluster_count))
+# Step 10: Re-run k-means clustering using the best number of clusters
+set.seed(123)
+kmeans_result <- kmeans(nmds_data[, 1:2], centers = best_cluster_count)
+plot_data$Cluster <- as.factor(kmeans_result$cluster)  # Add the cluster information
+# Step 11: Plot the NMDS results with the optimal number of clusters and ensure labels appear
+ggplot(plot_data, aes(x = NMDS1, y = NMDS2)) +
+  geom_point(aes(color = PR, shape = factor(Site)), size = 4) +  # Include PR gradient and Site shapes
+  stat_ellipse(aes(group = Cluster, fill = Cluster), 
+               alpha = 0.3, 
+               geom = "polygon", 
+               color = "black", 
+               level = 0.95) +  # Set confidence level to 95% for ellipses
+  geom_text(aes(label = substr(SampleID, 1, 3)), vjust = -1.5, size = 3, color = "black") +  # Ensure labels appear with first 3 letters of SampleID
+  scale_color_gradient(low = "firebrick1", high = "dodgerblue1") +  # Gradient color scale for PR
+  scale_shape_manual(values = c(0:25)) +  # Apply manual shape palette with enough shapes
+  scale_fill_manual(values = c("1" = "sienna3",  # Adjust cluster fill colors as needed
+                               "2" = "cornflowerblue")) +  
+  theme_bw() +
+  labs(title = paste("NMDS Plot with Optimal Clusters (", best_cluster_count, " clusters)", sep=""),
+       x = "NMDS1",
+       y = "NMDS2",
+       color = "Precipitation Depth",
+       shape = "Site",
+       fill = "Cluster") +
+  theme(
+    legend.position = "right",
+    strip.background = element_rect(color = "black", fill = "white"),
+    strip.text = element_text(size = 10),
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10)
+  )
+
+Rhizobiome:
+library(cluster)
+library(vegan)
+library(ggplot2)
+library(dplyr)
+# Step 1: Load the OTU data and metadata
+otu_data <- read.csv("level-6-2-copy.csv", row.names = 1)  # Assuming OTU data is in level-7.csv
+metadata <- read.csv("Metadata2.csv")  # Load the metadata file
+# Step 2: Create the Bray-Curtis dissimilarity matrix
+dissimilarity_matrix <- vegdist(otu_data, method = "bray")
+# Step 3: Perform NMDS
+nmds <- metaMDS(dissimilarity_matrix, distance = "bray", k = 2)  # k is the number of dimensions
+# Step 4: Extract NMDS scores
+nmds_data <- as.data.frame(scores(nmds))
+nmds_data$SampleID <- rownames(nmds_data)  # Ensure SampleID is included for joining
+# Step 5: Ensure SampleID is character in metadata
+metadata$SampleID <- as.character(metadata$SampleID)
+# Step 6: Extract the first three letters of the SampleID as the Site
+metadata <- metadata %>%
+  mutate(Site = substr(SampleID, 1, 3))  # Extract first three characters as Site
+# Step 7: Join the NMDS data with the metadata to include the PR and Site columns
+plot_data <- nmds_data %>%
+  inner_join(metadata, by = "SampleID")
+# Step 8: Determine the best number of clusters based on silhouette score
+silhouette_scores <- data.frame(ClusterCount = integer(), AverageSilhouette = numeric())
+for (k in 2:10) {  # Try cluster counts from 2 to 10
+  set.seed(123)  # For reproducibility
+  kmeans_result <- kmeans(nmds_data[, 1:2], centers = k)  # Apply k-means clustering
+  # Calculate silhouette scores
+  sil_scores <- silhouette(kmeans_result$cluster, dissimilarity_matrix)
+  # Convert silhouette scores to a data frame
+  sil_df <- as.data.frame(sil_scores)
+  # Calculate the average silhouette score for the current number of clusters
+  avg_silhouette <- mean(sil_df[, "sil_width"])
+  # Append the results to the silhouette_scores data frame
+  silhouette_scores <- rbind(silhouette_scores, data.frame(ClusterCount = k, AverageSilhouette = avg_silhouette))
+}
+# Print silhouette scores for different cluster counts
+print(silhouette_scores)
+# Step 9: Find the number of clusters with the highest silhouette score
+best_cluster_count <- silhouette_scores %>%
+  filter(AverageSilhouette == max(AverageSilhouette)) %>%
+  pull(ClusterCount)
+print(paste("Best number of clusters based on silhouette score:", best_cluster_count))
+# Step 10: Re-run k-means clustering using the best number of clusters
+set.seed(123)
+kmeans_result <- kmeans(nmds_data[, 1:2], centers = best_cluster_count)
+plot_data$Cluster <- as.factor(kmeans_result$cluster)  # Add the cluster information
+# Step 11: Plot the NMDS results with the optimal number of clusters and ensure labels appear
+ggplot(plot_data, aes(x = NMDS1, y = NMDS2)) +
+  geom_point(aes(color = PR, shape = factor(Site)), size = 4) +  # Include PR gradient and Site shapes
+  stat_ellipse(aes(group = Cluster, fill = Cluster), 
+               alpha = 0.3, 
+               geom = "polygon", 
+               color = "black", 
+               level = 0.95) +  # Set confidence level to 95% for ellipses
+  geom_text(aes(label = substr(SampleID, 1, 3)), vjust = -1.5, size = 3, color = "black") +  # Ensure labels appear with first 3 letters of SampleID
+  scale_color_gradient(low = "firebrick1", high = "dodgerblue1") +  # Gradient color scale for PR
+  scale_shape_manual(values = c(0:25)) +  # Apply manual shape palette with enough shapes
+  scale_fill_manual(values = c("1" = "sienna3",  # Adjust cluster fill colors as needed
+                               "2" = "cornflowerblue")) +  
+  theme_bw() +
+  labs(title = paste("NMDS Plot with Optimal Clusters (", best_cluster_count, " clusters)", sep=""),
+       x = "NMDS1",
+       y = "NMDS2",
+       color = "Precipitation Depth",
+       shape = "Site",
+       fill = "Cluster") +
+  theme(
+    legend.position = "right",
+    strip.background = element_rect(color = "black", fill = "white"),
+    strip.text = element_text(size = 10),
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10)
+  )
+
+Combined nMDS Plot:
+  # Load necessary libraries
+  library(cluster)
+  library(vegan)
+  library(ggplot2)
+  library(dplyr)
+  # --- Local Soil Processing ---
+  otu_data_soil <- read.csv("level-6.csv", row.names = 1)  # OTU data for Local Soil
+  metadata_soil <- read.csv("Metadata.csv")  # Metadata for Local Soil
+  # Create Bray-Curtis dissimilarity matrix and perform NMDS
+  dissimilarity_matrix_soil <- vegdist(otu_data_soil, method = "bray")
+  nmds_soil <- metaMDS(dissimilarity_matrix_soil, distance = "bray", k = 2)
+  nmds_data_soil <- as.data.frame(scores(nmds_soil))
+  nmds_data_soil$SampleID <- rownames(nmds_data_soil)
+  # Prepare metadata and join with NMDS data
+  metadata_soil$SampleID <- as.character(metadata_soil$SampleID)
+  metadata_soil <- metadata_soil %>% mutate(Site = substr(SampleID, 1, 3))
+  plot_data_soil <- nmds_data_soil %>% inner_join(metadata_soil, by = "SampleID")
+  # Perform clustering for Local Soil
+  silhouette_scores_soil <- data.frame(ClusterCount = integer(), AverageSilhouette = numeric())
+  for (k in 2:10) {
+    kmeans_result <- kmeans(nmds_data_soil[, 1:2], centers = k)
+    sil_scores <- silhouette(kmeans_result$cluster, dissimilarity_matrix_soil)
+    avg_silhouette <- mean(as.data.frame(sil_scores)[, "sil_width"])
+    silhouette_scores_soil <- rbind(silhouette_scores_soil, data.frame(ClusterCount = k, AverageSilhouette = avg_silhouette))
+  }
+  best_cluster_count_soil <- silhouette_scores_soil %>%
+    filter(AverageSilhouette == max(AverageSilhouette)) %>%
+    pull(ClusterCount)
+  kmeans_result_soil <- kmeans(nmds_data_soil[, 1:2], centers = best_cluster_count_soil)
+  plot_data_soil$Cluster <- as.factor(kmeans_result_soil$cluster)  # Add Cluster information
+  plot_data_soil$Source <- "Local Soil"  # Add Source information
+  # --- Rhizobiome Processing ---
+  otu_data_rhizo <- read.csv("level-6-2-copy.csv", row.names = 1)  # OTU data for Rhizobiome
+  metadata_rhizo <- read.csv("Metadata2.csv")  # Metadata for Rhizobiome
+  # Create Bray-Curtis dissimilarity matrix and perform NMDS
+  dissimilarity_matrix_rhizo <- vegdist(otu_data_rhizo, method = "bray")
+  nmds_rhizo <- metaMDS(dissimilarity_matrix_rhizo, distance = "bray", k = 2)
+  nmds_data_rhizo <- as.data.frame(scores(nmds_rhizo))
+  nmds_data_rhizo$SampleID <- rownames(nmds_data_rhizo)
+  # Prepare metadata and join with NMDS data
+  metadata_rhizo$SampleID <- as.character(metadata_rhizo$SampleID)
+  metadata_rhizo <- metadata_rhizo %>% mutate(Site = substr(SampleID, 1, 3))
+  plot_data_rhizo <- nmds_data_rhizo %>% inner_join(metadata_rhizo, by = "SampleID")
+  # Perform clustering for Rhizobiome
+  silhouette_scores_rhizo <- data.frame(ClusterCount = integer(), AverageSilhouette = numeric())
+  for (k in 2:10) {
+    kmeans_result <- kmeans(nmds_data_rhizo[, 1:2], centers = k)
+    sil_scores <- silhouette(kmeans_result$cluster, dissimilarity_matrix_rhizo)
+    avg_silhouette <- mean(as.data.frame(sil_scores)[, "sil_width"])
+    silhouette_scores_rhizo <- rbind(silhouette_scores_rhizo, data.frame(ClusterCount = k, AverageSilhouette = avg_silhouette))
+  }
+  best_cluster_count_rhizo <- silhouette_scores_rhizo %>%
+    filter(AverageSilhouette == max(AverageSilhouette)) %>%
+    pull(ClusterCount)
+  kmeans_result_rhizo <- kmeans(nmds_data_rhizo[, 1:2], centers = best_cluster_count_rhizo)
+  plot_data_rhizo$Cluster <- as.factor(kmeans_result_rhizo$cluster)  # Add Cluster information
+  plot_data_rhizo$Source <- "Rhizobiome"  # Add Source information
+  # --- Combine Data and Plot ---
+  combined_plot_data <- rbind(plot_data_soil, plot_data_rhizo)  # Combine datasets
+  # Create the combined NMDS plot
+  ggplot(combined_plot_data, aes(x = NMDS1, y = NMDS2)) +
+    geom_point(aes(color = PR, shape = factor(Site), size = Source), alpha = 0.8) +
+    stat_ellipse(aes(group = interaction(Source, Cluster), fill = interaction(Source, Cluster)), 
+                 alpha = 0.3, 
+                 geom = "polygon", 
+                 color = "black", 
+                 level = 0.95) +
+    geom_text(aes(label = substr(SampleID, 1, 3)), vjust = -1.5, size = 3, color = "black") +
+    scale_color_gradient(low = "firebrick1", high = "dodgerblue1") +
+    scale_shape_manual(values = c(0:25)) +
+    scale_fill_manual(values = c("Local Soil.1" = "darkseagreen1", 
+                                 "Local Soil.2" = "orange", 
+                                 "Rhizobiome.1" = "cornflowerblue", 
+                                 "Rhizobiome.2" = "plum")) +  # Adjust fill colors for clusters
+    scale_size_manual(values = c("Local Soil" = 3, "Rhizobiome" = 6)) +  # Adjust point sizes
+    theme_bw() +
+    labs(title = "Combined NMDS Plot: Local Soil and Rhizobiome with Independent Clustering",
+         x = "NMDS1",
+         y = "NMDS2",
+         color = "Precipitation Depth",
+         shape = "Site",
+         size = "Sample Type",
+         fill = "Cluster") +
+    theme(
+      legend.position = "right",
+      strip.background = element_rect(color = "black", fill = "white"),
+      strip.text = element_text(size = 10),
+      plot.title = element_text(size = 20),
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 10),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 10)
+    )
+
+Sample Map:
+library(ggplot2)
+library(sf)
+library(dplyr)
+library(maps)
+# Read the location data
+locations <- read.csv("Location.csv")
+# Filter for continental US
+continental_us <- locations %>%
+  filter(Lat >= 24.396308 & Lat <= 49.384358, Long >= -125.0 & Long <= -66.93457)
+# Get US map data
+us_map <- map_data("state")
+# Create the plot
+ggplot() +
+  # Plot the U.S. map with tan fill inside the map borders and grey outlines
+  geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "white", color = "grey80") +
+  # Plot the points with a continuous color gradient for precipitation and black outlines
+  geom_point(data = continental_us, aes(x = Long, y = Lat, fill = P), size = 5, shape = 21, color = "black", stroke = .25) +
+  # Add text labels for site names next to the points and make them bold
+  geom_text(data = continental_us, aes(x = Long, y = Lat, label = Site), 
+            hjust = 1.7, vjust = .5, size = 3, fontface = "bold", color = "grey10") +
+  # Define a color gradient based on precipitation levels
+  scale_fill_gradientn(colors = c("white", "grey95", "grey90", "grey70", "grey65", "grey60", "grey30", "grey20", "grey10"),
+                       values = scales::rescale(c(0, 10, 20, 25, 30, 40, 50, 60, 70))) +
+  # Set the theme and titles
+  theme_bw(base_size = 15) +
+  coord_fixed(1.3) +
+  # Titles and labels
+  labs(title = "Sample Locations",
+       x = "Longitude", y = "Latitude",
+       fill = "Maximum Precipitation Depth in. (60-day period)") +
+  # Allow for point size adjustment in the legend
+  guides(fill = guide_colorbar(barwidth = 10, barheight = 1)) +
+  # Customizing the plot further for aesthetics
+  theme(
+    plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15),
+    legend.position = "bottom",
+    # Set the plot background to light blue and only the inside of the map tan
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "grey90", color = NA),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+Rhizobiome Sample Distribution (Pie Charts):
+# Load necessary libraries
+ library(ggplot2)
+ library(reshape2)
+ library(gridExtra)
+ # Load the data
+ data <- read.csv("RB.csv")
+ # Define colors
+ sample_colors <- c("Wet" = "cornflowerblue", 
+                    "Dry" = "sienna3", 
+                    "Mesic" = "chartreuse3", 
+                    "Uncategorized" = "grey")
+ # Melt the data to long format for ggplot
+ long_data <- melt(data, id.vars = "SampleID", 
+                   variable.name = "Category", 
+                   value.name = "Value")
+ # Generate pie charts for each SampleID
+ pie_charts <- lapply(split(long_data, long_data$SampleID), function(sample_data) {
+   ggplot(sample_data, aes(x = "", y = Value, fill = Category)) +
+     geom_bar(stat = "identity", width = 1) +
+     coord_polar(theta = "y") +
+     labs(title = unique(sample_data$SampleID), x = NULL, y = NULL) +
+     scale_fill_manual(values = sample_colors) +
+     theme_void()
+ })
+ # Display pie charts in a single figure
+ do.call(grid.arrange, c(pie_charts, ncol = 3)) # Adjust ncol for layout
+
+Local Soil Sample Distribution (Stacked Bar Graphs):
+ # Load necessary libraries
+ library(ggplot2)
+ library(reshape2)
+ # Load the data
+ data <- read.csv("Soil.csv")
+ # Define colors
+ sample_colors <- c("Wet" = "cornflowerblue", 
+                    "Dry" = "sienna3", 
+                    "Mesic" = "chartreuse3", 
+                    "Uncategorized" = "grey")
+ # Melt the data to long format for ggplot
+ long_data <- melt(data, id.vars = "SampleID", 
+                   variable.name = "Category", 
+                   value.name = "Value")
+ # Create stacked bar graphs
+ stacked_bar_graph <- ggplot(long_data, aes(x = SampleID, y = Value, fill = Category)) +
+   geom_bar(stat = "identity") +
+   scale_fill_manual(values = sample_colors) +
+   labs(title = "Stacked Bar Graph of Soil Categories by SampleID", 
+        x = "SampleID", 
+        y = "Value") +
+   theme_minimal() +
+   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ # Display the graph
+ print(stacked_bar_graph)
+
+
+Network Analysis:
+
+Making the CSV file:
+# Increase the buffer size for reading large CSV files
+Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 10)  # Doubling the buffer size
+# Load necessary libraries
+library(dplyr)
+library(readr)
+# Read in the ASV tables
+df1 <- read_csv("level-6.csv")
+df2 <- read_csv("level-6-2-copy.csv")
+# Extract the ASV names from both tables (column names excluding the first column)
+asv_names_1 <- colnames(df1)[-1]
+asv_names_2 <- colnames(df2)[-1]
+# Combine the ASV names to ensure both tables have identical ASV columns
+all_asv_names <- union(asv_names_1, asv_names_2)
+# Add missing ASV columns to df1 and fill with zeros
+for (asv in all_asv_names) {
+  if (!(asv %in% colnames(df1))) {
+    df1[[asv]] <- 0
+  }
+}
+# Add missing ASV columns to df2 and fill with zeros
+for (asv in all_asv_names) {
+  if (!(asv %in% colnames(df2))) {
+    df2[[asv]] <- 0
+  }
+}
+# Reorder columns to have identical ASV columns in both dataframes
+df1 <- df1 %>%
+  select(sample_name = 1, all_of(all_asv_names))
+df2 <- df2 %>%
+  select(sample_name = 1, all_of(all_asv_names))
+# Group the sample names by the first 6 characters
+df1 <- df1 %>%
+  mutate(sample_name = substr(sample_name, 1, 6))
+df2 <- df2 %>%
+  mutate(sample_name = substr(sample_name, 1, 6))
+# Write the updated dataframes to new CSV files
+write_csv(df1, "level-6-updated.csv")
+write_csv(df2, "level-6-2-updated.csv")
+# From level-6-updated.csv and level-6-2-updated make Combined.csv
+# Install and load the necessary package
+library(vegan)
+# Read the CSV file
+otu_data <- read.csv("Combined.csv", row.names = 1)
+# Check the first few rows of your data
+head(otu_data)
+# Create the dissimilarity matrix using Bray-Curtis distance
+dissimilarity_matrix <- vegdist(otu_data, method = "bray")
+# Print the dissimilarity matrix
+print(dissimilarity_matrix)
+# Save the dissimilarity matrix to a file (optional)
+write.csv(as.matrix(dissimilarity_matrix), file = "dissimilarity_matrix3.csv")
+
+Network:
+
+library(phyloseq)
+library(igraph)
+library(ggplot2)
+library(ggnewscale)
+# Load dissimilarity matrix
+dissimilarity_matrix <- read.csv("dissimilarity_matrix3.csv", row.names = 1, check.names = FALSE)
+# Load metadata
+metadata <- read.csv("Combined_Metadata.csv", row.names = 1, check.names = FALSE)
+# Check and align sample names
+dissimilarity_samples <- rownames(dissimilarity_matrix)
+metadata_samples <- rownames(metadata)
+# Find mismatches
+mismatched_dissimilarity_samples <- setdiff(dissimilarity_samples, metadata_samples)
+mismatched_metadata_samples <- setdiff(metadata_samples, dissimilarity_samples)
+if(length(mismatched_dissimilarity_samples) > 0) {
+  cat("The following samples are in the dissimilarity matrix but not in the metadata file: ", paste(mismatched_dissimilarity_samples, collapse = ", "), "\n")
+}
+if(length(mismatched_metadata_samples) > 0) {
+  cat("The following samples are in the metadata file but not in the dissimilarity matrix: ", paste(mismatched_metadata_samples, collapse = ", "), "\n")
+}
+# Subset dissimilarity matrix and metadata to include only matching samples
+matching_samples <- intersect(dissimilarity_samples, metadata_samples)
+dissimilarity_matrix <- dissimilarity_matrix[matching_samples, matching_samples]
+metadata <- metadata[matching_samples, ]
+# Convert dissimilarity to similarity
+similarity_matrix <- 1 - as.matrix(dissimilarity_matrix)
+# Create an igraph object and plot the network
+network <- graph.adjacency(similarity_matrix, mode = "undirected", weighted = TRUE, diag = FALSE)
+# Set vertex attributes
+V(network)$Ecotype <- metadata$Ecotype
+V(network)$Location <- metadata$Location
+# Plot the network with minimal edge weights
+layout <- layout_with_fr(network)
+# Create data frame for vertices
+vertices <- data.frame(id = V(network)$name,
+                       x = layout[,1],
+                       y = layout[,2],
+                       Ecotype = V(network)$Ecotype,
+                       Location = V(network)$Location)
+# Create data frame for edges
+edges <- as.data.frame(get.edgelist(network))
+colnames(edges) <- c("from", "to")
+edges$weight <- E(network)$weight
+# Merge vertex coordinates into edge data frame
+edges <- merge(edges, vertices, by.x = "from", by.y = "id", all.x = TRUE)
+edges <- merge(edges, vertices, by.x = "to", by.y = "id", all.x = TRUE, suffixes = c(".from", ".to"))
+# Scale edge weights for color intensity
+edges$Level_of_Association <- (edges$weight - min(edges$weight)) / (max(edges$weight) - min(edges$weight))
+# Plot using ggplot2
+ggplot() +
+  geom_segment(data = edges, aes(x = x.from, y = y.from, xend = x.to, yend = y.to, color = Level_of_Association), linewidth = 0.5) + # Set linewidth and color by grey_intensity
+  scale_color_gradient(low = "yellow", high = "magenta") +
+  new_scale_color() + # To use a different color scale for the points
+  geom_point(data = vertices, aes(x = x, y = y, color = Ecotype), size = 5) +
+  geom_text(data = vertices, aes(x = x, y = y, label = Location), vjust = 0, hjust = 0, size = 3) +
+  theme_minimal() +
+  labs(title = "Association Network Local Soil and Rhizobiome",
+       x = "",
+       y = "") +
+  theme(legend.position = "right")
+
+Louvain Network:
+  
+library(igraph)
+# Assuming 'network' is your igraph object
+# Perform Louvain clustering (efficient for networks of this size)
+community <- cluster_louvain(network)
+# Define custom colors for each cluster
+# Replace these colors as needed (e.g., "cornflowerblue", "chartreuse3", "sienna3", etc.)
+custom_colors <- c("cornflowerblue", "chartreuse3", "sienna3" )
+num_clusters <- length(unique(membership(community)))
+# Ensure the color palette matches the number of clusters
+if (num_clusters > length(custom_colors)) {
+  stop("Increase the number of custom colors to match the number of clusters.")
+}
+# Assign colors and other visual properties
+V(network)$color <- custom_colors[membership(community)]
+V(network)$size <- 5  # Default vertex size (adjustable)
+V(network)$label <- V(network)$name  # Add labels for each node
+V(network)$label.cex <- 0.5  # Default text size (adjustable)
+V(network)$label.color <- "black"  # Default label color (adjustable)
+# Plotting with enhanced options
+plot(
+  community, network,
+  layout = layout_with_fr,               # Fruchterman-Reingold layout for balanced node spacing
+  vertex.color = V(network)$color,       # Color vertices based on community
+  vertex.size = V(network)$size,         # Size of the vertex (adjustable)
+  vertex.label = V(network)$label,       # Label for each vertex (name of the sample)
+  vertex.label.cex = V(network)$label.cex, # Label text size (adjustable)
+  vertex.label.color = V(network)$label.color, # Label color (adjustable)
+  vertex.frame.color = "white",          # White border around nodes for contrast
+  edge.color = NA,                 # Soft gray edges for emphasis on nodes
+  edge.arrow.size = 0.5,                 # Small arrows for directed networks
+  main = "Enhanced Network Visualization with Louvain Clustering"
+)
+# List samples in each cluster
+community_membership <- membership(community)
+samples_in_clusters <- split(V(network)$name, community_membership)  # Split by community membership
+# Display the clusters and their members
+print(samples_in_clusters)
+
+Alpha Diversity:
+# Load necessary libraries
+  library(ggplot2)
+  library(dplyr)
+  library(multcompView)
+  library(multcomp)
+  library(agricolae)
+  # Define a function to create violin plots
+  create_violin_plot <- function(data, variable, y_label, ymin_offset, dataset_label) {
+    # Perform ANOVA
+    anova_result <- aov(as.formula(paste(variable, "~ Ecotype")), data = data)
+    # Perform Tukey HSD post hoc test
+    tukey_result <- HSD.test(anova_result, "Ecotype", group = TRUE)
+    # Extract the letters from the Tukey test results
+    letters <- data.frame(Ecotype = rownames(tukey_result$groups), group = tukey_result$groups$groups)
+    # Create a summary dataframe to position letters at the bottom of the graphs
+    summary_df <- data %>%
+      group_by(Ecotype) %>%
+      summarise(min_value = min(.data[[variable]])) %>%
+      left_join(letters, by = "Ecotype")
+    # Create the violin plot
+    ggplot(data, aes(x = Ecotype, y = .data[[variable]], fill = Ecotype)) +
+      geom_violin(trim = FALSE) +
+      geom_jitter(width = 0.2, size = 1, alpha = 0.6) +
+      labs(title = paste(dataset_label, y_label),
+           x = "Precipitation Ecotype",
+           y = y_label) +
+      theme_bw() +
+      scale_fill_manual(values = c("Wet" = "cornflowerblue", "Mesic" = "chartreuse3", "Dry" = "sienna3")) +
+      theme(
+        legend.position = "none",
+        axis.text = element_text(color = "grey30", size = 15),
+        axis.title = element_text(color = "black", size = 20)
+      ) +
+      geom_text(data = summary_df, aes(x = Ecotype, y = min_value - ymin_offset, label = group), 
+                vjust = -7, size = 10, alpha = 1, color = "black") +
+      annotate("rect", xmin = 0.5, xmax = 1.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "sienna3") +
+      annotate("rect", xmin = 1.5, xmax = 2.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "chartreuse3") +
+      annotate("rect", xmin = 2.5, xmax = 3.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "cornflowerblue") +
+      annotate("segment", x = 1.5, xend = 1.5, y = -Inf, yend = Inf, color = "black") +
+      annotate("segment", x = 2.5, xend = 2.5, y = -Inf, yend = Inf, color = "black")
+  }
+  # Read datasets
+  data_soil <- read.csv("Shared.csv")      # Local Soil dataset
+  data_rhizobiome <- read.csv("Shared2.csv")  # Rhizobiome dataset
+  # Define the variables and labels for plotting
+  variables <- c("Shannon", "Faith", "Sobs")
+  y_labels <- c("Shannon Index", "Faith Index", "Sobs Index")
+  y_offsets <- c(0.5, 0.5, 0.5)  # Offset for letters below the plots
+  # Create plots for Local Soil
+  plots_soil <- lapply(seq_along(variables), function(i) {
+    create_violin_plot(data_soil %>% filter(is.finite(.data[[variables[i]]]) & !is.na(.data[[variables[i]]])), 
+                       variables[i], y_labels[i], y_offsets[i], "Local Soil")
+  })
+  
+  # Create plots for Rhizobiome
+  plots_rhizobiome <- lapply(seq_along(variables), function(i) {
+    create_violin_plot(data_rhizobiome %>% filter(is.finite(.data[[variables[i]]]) & !is.na(.data[[variables[i]]])), 
+                       variables[i], y_labels[i], y_offsets[i], "Rhizobiome")
+  })
+  # Combine all plots using patchwork
+  library(patchwork)
+  combined_plot <- (plots_soil[[1]] | plots_soil[[2]] | plots_soil[[3]]) /
+    (plots_rhizobiome[[1]] | plots_rhizobiome[[2]] | plots_rhizobiome[[3]])
+  # Display the combined plot
+  print(combined_plot)
+
+Soil Properties:
+# Load necessary libraries
+  library(ggplot2)
+  library(dplyr)
+  library(multcompView)
+  library(multcomp)
+  library(agricolae)
+  library(patchwork)  # For combining plots
+  # Define a function to create individual violin plots
+  create_violin_plot <- function(data, variable, y_label, ymax_offset, fill_colors) {
+    # Perform ANOVA
+    anova_result <- aov(as.formula(paste(variable, "~ Ecotype")), data = data)
+    # Perform Tukey HSD post hoc test
+    tukey_result <- HSD.test(anova_result, "Ecotype", group = TRUE)
+    # Extract the letters from the Tukey test results
+    letters <- data.frame(Ecotype = rownames(tukey_result$groups), group = tukey_result$groups$groups)
+    # Create a summary dataframe to position letters above the graphs
+    summary_df <- data %>%
+      group_by(Ecotype) %>%
+      summarise(max_value = max(.data[[variable]])) %>%
+      left_join(letters, by = "Ecotype")
+    
+    # Create the violin plot
+    ggplot(data, aes(x = Ecotype, y = .data[[variable]], fill = Ecotype)) +
+      geom_violin(trim = FALSE) +
+      geom_jitter(width = 0.2, size = 1, alpha = 0.6) +
+      labs(title = "",
+           x = "Precipitation Ecotype",
+           y = y_label) +
+      theme_bw() +
+      scale_fill_manual(values = fill_colors) +
+      theme(
+        legend.position = "none",
+        axis.text = element_text(color = "grey30", size = 10),
+        axis.title = element_text(color = "black", size = 10)
+      ) +
+      geom_text(data = summary_df, aes(x = Ecotype, y = max_value + ymax_offset, label = group), 
+                vjust = +0.5, size = 10, color = "black") +
+      annotate("rect", xmin = 0.5, xmax = 1.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "sienna3") +
+      annotate("rect", xmin = 1.5, xmax = 2.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "chartreuse3") +
+      annotate("rect", xmin = 2.5, xmax = 3.5, ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "cornflowerblue") +
+      annotate("segment", x = 1.5, xend = 1.5, y = -Inf, yend = Inf, color = "black") +
+      annotate("segment", x = 2.5, xend = 2.5, y = -Inf, yend = Inf, color = "black")
+  }
+  # Read the data
+  data <- read.csv("Metadata.csv")
+  # Define the fill colors for the Ecotypes
+  fill_colors <- c("Wet" = "cornflowerblue", "Mesic" = "chartreuse3", "Dry" = "sienna3")
+  # Create individual plots
+  plot_pH <- create_violin_plot(data, "pH", "Soil pH", 0.8, fill_colors)
+  plot_TN <- create_violin_plot(data, "TN", "Soil Total Nitrogen (%)", 0.8, fill_colors)
+  plot_TC <- create_violin_plot(data, "TC", "Soil Total Carbon (%)", 0.8, fill_colors)
+  plot_CN <- create_violin_plot(data, "CN", "Soil Carbon to Nitrogen Ratio (C:N)", 0.8, fill_colors)
+  plot_P <- create_violin_plot(data, "P", "Soil Phosphorus (ppm)", 0.8, fill_colors)
+  plot_Sand <- create_violin_plot(data, "Sand", "Soil Sand Content (%)", 0.8, fill_colors)
+  plot_Silt <- create_violin_plot(data, "Silt", "Soil Silt Content (%)", 0.8, fill_colors)
+  plot_Clay <- create_violin_plot(data, "Clay", "Soil Clay Content (%)", 0.8, fill_colors)
+  # Combine plots side by side
+  combined_plot <- (plot_pH | plot_P) /
+    (plot_TC | plot_TN | plot_CN) /
+    (plot_Sand | plot_Silt | plot_Clay)
+  # Display the combined plot
+  print(combined_plot)
+
+pH Diversity Plots:
+
+Phylum by Ecotype and Type:
+# Load necessary libraries
+ library(tidyverse)
+ library(randomcoloR) # For generating distinct color palettes
+ library(patchwork) # For combining plots side by side
+ # Increase the connection buffer size to avoid buffer size errors
+ Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+ # Read the CSV files
+ asv_data <- read_csv("Combined.csv")
+ metadata <- read_csv("Combined_Metadata.csv")
+ # Pivot `Combined.csv` to long format to align with `Combined_Metadata.csv`
+ long_asv_data <- asv_data %>%
+   pivot_longer(cols = -SampleID, names_to = "ASV", values_to = "Abundance") %>%
+   filter(Abundance > 0)  # Remove rows with zero abundance
+ # Extract the name between `;p__` and the next `;` in ASV names
+ long_asv_data <- long_asv_data %>%
+   mutate(Phylum = str_extract(ASV, "(?<=;p__)[^;]+"))
+ # Merge the long-format ASV data with metadata
+ merged_data <- long_asv_data %>%
+   left_join(metadata, by = "SampleID") %>%  # Merge by SampleID to include pH, Type, and Ecotype
+   drop_na()  # Remove rows with any NA values
+ # Categorize pH into specified ranges
+ merged_data <- merged_data %>%
+   mutate(pH_Category = case_when(
+     pH >= 5.5 & pH < 6 ~ "5.5-6",
+     pH >= 6 & pH < 6.5 ~ "6-6.5",
+     pH >= 6.5 & pH < 7 ~ "6.5-7",
+     pH >= 7 & pH < 7.5 ~ "7-7.5",
+     pH >= 7.5 & pH < 8 ~ "7.5-8",
+     TRUE ~ NA_character_
+   )) %>%
+   filter(!is.na(pH_Category))  # Exclude samples with missing or invalid pH
+ # Normalize abundance within each pH category, Type, and Ecotype
+ merged_data <- merged_data %>%
+   group_by(pH_Category, Type, Ecotype) %>%
+   mutate(Relative_Abundance = Abundance / sum(Abundance)) %>%
+   ungroup()
+ # Aggregate abundance by Phylum, pH_Category, Type, and Ecotype
+ aggregated_data <- merged_data %>%
+   group_by(pH_Category, Type, Ecotype, Phylum) %>%
+   summarise(Total_Abundance = sum(Relative_Abundance), .groups = "drop")
+ # Calculate percentage of total abundance within each pH_Category, Type, and Ecotype
+ aggregated_data <- aggregated_data %>%
+   group_by(pH_Category, Type, Ecotype) %>%
+   mutate(Percentage = (Total_Abundance / sum(Total_Abundance)) * 100) %>%
+   ungroup()
+ # Generate a unique and distinct color palette for the Phylum
+ num_phyla <- length(unique(aggregated_data$Phylum))
+ color_palette <- distinctColorPalette(num_phyla)
+ # Create the plot, faceted by Type (on the side) and Ecotype (on the top)
+ plot_with_phylum <- ggplot(aggregated_data, aes(x = pH_Category, y = Percentage, fill = Phylum)) +
+   geom_bar(stat = "identity", color = "black", position = "stack") + # Add a black outline for better contrast
+   scale_fill_manual(
+     values = setNames(color_palette, unique(aggregated_data$Phylum)),
+     name = "Phylum"
+   ) +
+   labs(
+     title = "ASV Distribution by pH Category, Type, and Ecotype",
+     subtitle = "% of Total Relative Abundance by Phylum",
+     x = "pH Category",
+     y = "Percentage of Total Abundance"
+   ) +
+   facet_grid(Type ~ Ecotype) + # Facet with Type as rows and Ecotype as columns
+   theme_bw(base_size = 14) +
+   theme(
+     plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
+     plot.subtitle = element_text(size = 14, hjust = 0.5),
+     axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+     axis.text.y = element_text(face = "bold"),
+     legend.position = "right",
+     legend.title = element_text(size = 10, face = "bold"),
+     legend.text = element_text(size = 10),
+     panel.grid.major = element_line(color = "gray80", size = 0.5),
+     panel.grid.minor = element_blank()
+   )
+ # Display the plot
+ print(plot_with_phylum)
+
+Alpha Diversity Plot:
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+# Read the metadata file
+metadata <- read_csv("Combined_Metadata.csv")
+# Categorize pH into specified ranges (e.g., bins of 0.5 increments from 5.0 to 9.0)
+metadata <- metadata %>%
+  mutate(pH_Category = cut(
+    pH,
+    breaks = seq(5.0, 9.0, by = 0.5),
+    include.lowest = TRUE,
+    right = FALSE,
+    labels = paste(seq(5.0, 8.5, by = 0.5), seq(5.5, 9.0, by = 0.5), sep = "-")
+  )) %>%
+  filter(!is.na(pH_Category), !is.na(Shannon), !is.na(Sobs), !is.na(Faith))  # Ensure valid data
+# Aggregate data to calculate mean and SD for each metric
+aggregated_data <- metadata %>%
+  group_by(pH_Category, Type) %>%
+  summarise(
+    Mean_Shannon = mean(Shannon, na.rm = TRUE),
+    SD_Shannon = sd(Shannon, na.rm = TRUE),
+    Mean_Sobs = mean(Sobs, na.rm = TRUE),
+    SD_Sobs = sd(Sobs, na.rm = TRUE),
+    Mean_Faith = mean(Faith, na.rm = TRUE),
+    SD_Faith = sd(Faith, na.rm = TRUE),
+    .groups = "drop"
+  ) 
+
+# Define a consistent color palette for Soil and Rhizobiome
+type_colors <- c("Soil" = "gray24", "Rhizobiome" = "gray78")
+# Function to create individual plots
+create_plot <- function(data, metric, metric_label, y_limits) {
+  ggplot(data, aes(x = pH_Category, y = !!sym(paste0("Mean_", metric)), fill = Type)) +
+    geom_bar(stat = "identity", position = position_dodge(0.8), color = "black", width = 0.7) +
+    geom_errorbar(
+      aes(ymin = !!sym(paste0("Mean_", metric)) - !!sym(paste0("SD_", metric)),
+          ymax = !!sym(paste0("Mean_", metric)) + !!sym(paste0("SD_", metric))),
+      position = position_dodge(0.8), width = 0.2
+    ) +
+    scale_fill_manual(values = type_colors) +
+    labs(
+      x = "pH Category",
+      y = metric_label
+    ) +
+    theme_bw(base_size = 16) +
+    theme(
+      axis.title.x = element_text(face = "bold"),
+      axis.title.y = element_text(face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+      axis.text.y = element_text(face = "bold"),
+      legend.title = element_text(face = "bold"),
+      legend.text = element_text(size = 12),
+      panel.grid.major = element_line(color = "gray80"),
+      panel.grid.minor = element_blank()
+    ) +
+    scale_y_continuous(limits = y_limits, expand = expansion(mult = c(0, 0.1)))
+}
+# Create individual plots
+shannon_plot <- create_plot(aggregated_data, "Shannon", "Shannon", c(0, NA))
+sobs_plot <- create_plot(aggregated_data, "Sobs", "Sobs", c(0, NA))
+faith_plot <- create_plot(aggregated_data, "Faith", "Faith", c(0, NA))
+# Combine the plots into one figure
+combined_plot <- (shannon_plot / sobs_plot / faith_plot) +
+  plot_annotation(
+    title = "Diversity Indices Across pH Categories",
+    theme = theme(
+      plot.title = element_text(face = "bold", size = 24, hjust = 0.5)
+    )
+  )
+# Display the combined plot
+print(combined_plot)
+### Fixing the t-test results and heatmap generation ###
+# Function to annotate p-values with significance levels
+annotate_pvalue <- function(pval) {
+  if (pval < 0.001) return("***")
+  else if (pval < 0.01) return("**")
+  else if (pval < 0.05) return("*")
+  else return("ns")
+}
+# Load and process t-test results
+shannon_t_test <- read_csv("Shannon_t_test_results_pH.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+sobs_t_test <- read_csv("Sobs_t_test_results_pH.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+faith_t_test <- read_csv("Faith_t_test_results_pH.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+# Function to prepare data for ggplot heatmap
+prepare_heatmap_data <- function(df) {
+  df %>%
+    dplyr::select(group1, group2, p.adj, Significance) %>%
+    mutate(
+      group1 = factor(group1, levels = unique(group1)),
+      group2 = factor(group2, levels = unique(group2))
+    )
+}
+# Apply the function to each dataset
+shannon_soil_data <- prepare_heatmap_data(shannon_t_test %>% filter(Type == "Soil"))
+shannon_rhizobiome_data <- prepare_heatmap_data(shannon_t_test %>% filter(Type == "Rhizobiome"))
+sobs_soil_data <- prepare_heatmap_data(sobs_t_test %>% filter(Type == "Soil"))
+sobs_rhizobiome_data <- prepare_heatmap_data(sobs_t_test %>% filter(Type == "Rhizobiome"))
+faith_soil_data <- prepare_heatmap_data(faith_t_test %>% filter(Type == "Soil"))
+faith_rhizobiome_data <- prepare_heatmap_data(faith_t_test %>% filter(Type == "Rhizobiome"))
+# Define consistent scale limits for p-values across all metrics
+pval_limits <- range(
+  c(
+    shannon_soil_data$p.adj, shannon_rhizobiome_data$p.adj,
+    sobs_soil_data$p.adj, sobs_rhizobiome_data$p.adj,
+    faith_soil_data$p.adj, faith_rhizobiome_data$p.adj
+  ),
+  na.rm = TRUE
+)
+# Heatmap plotting function
+plot_heatmap <- function(data, title, scale_limits) {
+  ggplot(data, aes(x = group2, y = group1, fill = p.adj)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = Significance), color = "black", size = 4) +
+    scale_fill_gradient(low = "lightsteelblue2", high = "salmon2", na.value = "white", name = "p-value", limits = scale_limits) +
+    labs(title = title, x = "pH Category (Columns)", y = "pH Category (Rows)") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+      axis.title.x = element_text(size = 12),
+      axis.title.y = element_text(size = 12)
+    )
+}
+# Create individual heatmaps for each metric and type
+shannon_combined <- plot_heatmap(shannon_soil_data, "Shannon Diversity (Soil)", pval_limits) +
+  plot_heatmap(shannon_rhizobiome_data, "Shannon Diversity (Rhizobiome)", pval_limits)
+sobs_combined <- plot_heatmap(sobs_soil_data, "Sobs Diversity (Soil)", pval_limits) +
+  plot_heatmap(sobs_rhizobiome_data, "Sobs Diversity (Rhizobiome)", pval_limits)
+faith_combined <- plot_heatmap(faith_soil_data, "Faith Diversity (Soil)", pval_limits) +
+  plot_heatmap(faith_rhizobiome_data, "Faith Diversity (Rhizobiome)", pval_limits)
+# Display all combined heatmaps
+shannon_combined / sobs_combined / faith_combined + plot_layout(nrow = 3)
+
+Precipitation Diversity Plots:
+
+Phylum by Ecotype and Type:
+ # Load necessary libraries
+ library(tidyverse)
+ library(randomcoloR) # For generating distinct color palettes
+ library(patchwork) # For combining plots side by side
+ # Increase the connection buffer size to avoid buffer size errors
+ Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+ # Read the CSV files
+ asv_data <- read_csv("Combined.csv")
+ metadata <- read_csv("Combined_Metadata.csv")
+ # Pivot `Combined.csv` to long format to align with `Combined_Metadata.csv`
+ long_asv_data <- asv_data %>%
+   pivot_longer(cols = -SampleID, names_to = "ASV", values_to = "Abundance") %>%
+   filter(Abundance > 0)  # Remove rows with zero abundance
+ # Extract the name between `;p__` and the next `;` in ASV names
+ long_asv_data <- long_asv_data %>%
+   mutate(Phylum = str_extract(ASV, "(?<=;p__)[^;]+"))
+ # Merge the long-format ASV data with metadata
+ merged_data <- long_asv_data %>%
+   left_join(metadata, by = "SampleID") %>%  # Merge by SampleID to include PR values
+   drop_na()  # Remove all rows with any NA values
+ # Categorize PR into specified ranges (0.5 increments from 6.0 to 18.0)
+ merged_data <- merged_data %>%
+   mutate(PR_Category = cut(
+     PR,
+     breaks = seq(6.0, 18.0, by = 0.5),  # Create bins with 0.5 increments
+     include.lowest = TRUE,
+     right = FALSE,  # Use left-closed intervals [a, b)
+     labels = paste(seq(6.0, 17.5, by = 0.5), seq(6.5, 18.0, by = 0.5), sep = "-")
+   )) %>%
+   filter(!is.na(PR_Category))  # Exclude samples with missing or invalid PR values
+ # Normalize abundance within each PR category, Ecotype, and Type
+ merged_data <- merged_data %>%
+   group_by(PR_Category, Ecotype, Type) %>%
+   mutate(Relative_Abundance = Abundance / sum(Abundance)) %>%
+   ungroup()
+ # Aggregate abundance by Phylum, PR_Category, Ecotype, and Type
+ aggregated_data <- merged_data %>%
+   group_by(PR_Category, Ecotype, Type, Phylum) %>%
+   summarise(Total_Abundance = sum(Relative_Abundance), .groups = "drop")
+ # Calculate percentage of total abundance within each PR_Category, Ecotype, and Type
+ aggregated_data <- aggregated_data %>%
+   group_by(PR_Category, Ecotype, Type) %>%
+   mutate(Percentage = (Total_Abundance / sum(Total_Abundance)) * 100) %>%
+   ungroup()
+ # Generate a unique and distinct color palette for the Phylum
+ num_phyla <- length(unique(aggregated_data$Phylum))
+ color_palette <- distinctColorPalette(num_phyla)
+ # Create the plot, faceted by Ecotype and Type
+ plot_with_phylum <- ggplot(aggregated_data, aes(x = PR_Category, y = Percentage, fill = Phylum)) +
+   geom_bar(stat = "identity", color = "black", position = "stack") + # Add a black outline for better contrast
+   scale_fill_manual(
+     values = setNames(color_palette, unique(aggregated_data$Phylum)),
+     name = "Phylum"
+   ) +
+   labs(
+     title = "ASV Distribution by PR Category, Ecotype, and Type",
+     subtitle = "% of Total Relative Abundance by Phylum",
+     x = "Precipitation Depth Category",
+     y = "Percentage of Total Abundance"
+   ) +
+   facet_grid(Type ~ Ecotype) + # Separate by Ecotype and Type
+   theme_bw(base_size = 14) + # Use a larger base font size
+   theme(
+     plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
+     plot.subtitle = element_text(size = 14, hjust = 0.5),
+     axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+     axis.text.y = element_text(face = "bold"),
+     legend.position = "right", # Place legend to the side
+     legend.title = element_text(size = 12, face = "bold"),
+     legend.text = element_text(size = 10),
+     panel.grid.major = element_line(color = "gray80", size = 0.5), # Add major gridlines
+     panel.grid.minor = element_blank()
+   )
+ # Display the plot
+ print(plot_with_phylum)
+
+Alpha Diversity Plot:
+ # Load libraries
+ library(tidyverse)
+ library(patchwork)
+ # Read the metadata file
+ metadata <- read_csv("Combined_Metadata.csv")
+ # Categorize PR into specified ranges (0.5 increments from 6.0 to 18.0)
+ metadata <- metadata %>%
+   mutate(PR_Category = cut(
+     PR,
+     breaks = seq(6.0, 18.0, by = 0.5),
+     include.lowest = TRUE,
+     right = FALSE,
+     labels = paste(seq(6.0, 17.5, by = 0.5), seq(6.5, 18.0, by = 0.5), sep = "-")
+   )) %>%
+   filter(!is.na(PR_Category), !is.na(Shannon), !is.na(Sobs), !is.na(Faith))  # Ensure valid data
+ # Aggregate data to calculate mean and SD for each metric
+ aggregated_data <- metadata %>%
+   group_by(PR_Category, Type) %>%
+   summarise(
+     Mean_Shannon = mean(Shannon, na.rm = TRUE),
+     SD_Shannon = sd(Shannon, na.rm = TRUE),
+     Mean_Sobs = mean(Sobs, na.rm = TRUE),
+     SD_Sobs = sd(Sobs, na.rm = TRUE),
+     Mean_Faith = mean(Faith, na.rm = TRUE),
+     SD_Faith = sd(Faith, na.rm = TRUE),
+     .groups = "drop"
+   )
+ # Define a consistent color palette for Soil and Rhizobiome
+ type_colors <- c("Soil" = "gray24", "Rhizobiome" = "gray78")
+ # Function to create individual plots
+ create_plot <- function(data, metric, metric_label, y_limits) {
+   ggplot(data, aes(x = PR_Category, y = !!sym(paste0("Mean_", metric)), fill = Type)) +
+     geom_bar(stat = "identity", position = position_dodge(0.8), color = "black", width = 0.7) +
+     geom_errorbar(
+       aes(ymin = !!sym(paste0("Mean_", metric)) - !!sym(paste0("SD_", metric)),
+           ymax = !!sym(paste0("Mean_", metric)) + !!sym(paste0("SD_", metric))),
+       position = position_dodge(0.8), width = 0.2
+     ) +
+     scale_fill_manual(values = type_colors) +
+     labs(
+       title = paste(metric_label, "Diversity Across Precipitation Categories"),
+       x = "Precipitation Depth Category",
+       y = metric_label
+     ) +
+     theme_bw(base_size = 16) +
+     theme(
+       plot.title = element_text(face = "bold", size = 20, hjust = 0.5),
+       axis.title.x = element_text(face = "bold"),
+       axis.title.y = element_text(face = "bold"),
+       axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+       axis.text.y = element_text(face = "bold"),
+       legend.title = element_text(face = "bold"),
+       legend.text = element_text(size = 12),
+       panel.grid.major = element_line(color = "gray80"),
+       panel.grid.minor = element_blank()
+     ) +
+     scale_y_continuous(limits = y_limits, expand = expansion(mult = c(0, 0.1)))
+ }
+ # Create individual plots
+ shannon_plot <- create_plot(aggregated_data, "Shannon", "Shannon", c(0, NA))
+ sobs_plot <- create_plot(aggregated_data, "Sobs", "Sobs", c(0, NA))
+ faith_plot <- create_plot(aggregated_data, "Faith", "Faith", c(0, NA))
+ # Combine the plots into one figure
+ combined_plot <- (shannon_plot / sobs_plot / faith_plot) +
+   plot_annotation(
+     title = "Diversity Indices Across Precipitation Categories",
+     theme = theme(
+       plot.title = element_text(face = "bold", size = 24, hjust = 0.5)
+     )
+   )
+ # Display the combined plot
+ print(combined_plot)
+
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+# Function to annotate p-values with significance levels
+annotate_pvalue <- function(pval) {
+  if (pval < 0.001) return("***")
+  else if (pval < 0.01) return("**")
+  else if (pval < 0.05) return("*")
+  else return("ns")
+}
+# Load the data
+shannon_t_test <- read_csv("Shannon_t_test_results_pH.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+sobs_t_test <- read_csv("Sobs_t_test_results_pH.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+faith_t_test <- read_csv("Faith_t_test_results_pH.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+# Filter by Type (Soil and Rhizobiome) for each metric
+shannon_soil <- shannon_t_test %>% filter(Type == "Soil")
+shannon_rhizobiome <- shannon_t_test %>% filter(Type == "Rhizobiome")
+sobs_soil <- sobs_t_test %>% filter(Type == "Soil")
+sobs_rhizobiome <- sobs_t_test %>% filter(Type == "Rhizobiome")
+faith_soil <- faith_t_test %>% filter(Type == "Soil")
+faith_rhizobiome <- faith_t_test %>% filter(Type == "Rhizobiome")
+# Prepare data for ggplot heatmap
+prepare_heatmap_data <- function(df) {
+  df %>%
+    select(group1, group2, p.adj, Significance) %>%
+    mutate(
+      group1 = factor(group1, levels = unique(group1)),
+      group2 = factor(group2, levels = unique(group2))
+    )
+}
+# Prepare data for Soil and Rhizobiome
+shannon_soil_data <- prepare_heatmap_data(shannon_soil)
+shannon_rhizobiome_data <- prepare_heatmap_data(shannon_rhizobiome)
+sobs_soil_data <- prepare_heatmap_data(sobs_soil)
+sobs_rhizobiome_data <- prepare_heatmap_data(sobs_rhizobiome)
+faith_soil_data <- prepare_heatmap_data(faith_soil)
+faith_rhizobiome_data <- prepare_heatmap_data(faith_rhizobiome)
+# Define consistent scale limits for p-values across all metrics
+pval_limits <- range(
+  c(
+    shannon_soil_data$p.adj, shannon_rhizobiome_data$p.adj,
+    sobs_soil_data$p.adj, sobs_rhizobiome_data$p.adj,
+    faith_soil_data$p.adj, faith_rhizobiome_data$p.adj
+  ),
+  na.rm = TRUE
+)
+# Heatmap plotting function
+plot_heatmap <- function(data, title, scale_limits) {
+  ggplot(data, aes(x = group2, y = group1, fill = p.adj)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = Significance), color = "black", size = 4) +
+    scale_fill_gradient(low = "lightsteelblue2", high = "salmon2", na.value = "white", name = "p-value", limits = scale_limits) +
+    labs(title = title, x = "pH Category (Columns)", y = "pH Category (Rows)") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+      axis.title.x = element_text(size = 12),
+      axis.title.y = element_text(size = 12)
+    )
+}
+# Create individual heatmaps for each metric and type
+shannon_soil_heatmap <- plot_heatmap(shannon_soil_data, "Shannon Diversity (Soil)", pval_limits)
+shannon_rhizobiome_heatmap <- plot_heatmap(shannon_rhizobiome_data, "Shannon Diversity (Rhizobiome)", pval_limits)
+sobs_soil_heatmap <- plot_heatmap(sobs_soil_data, "Sobs Diversity (Soil)", pval_limits)
+sobs_rhizobiome_heatmap <- plot_heatmap(sobs_rhizobiome_data, "Sobs Diversity (Rhizobiome)", pval_limits)
+faith_soil_heatmap <- plot_heatmap(faith_soil_data, "Faith Diversity (Soil)", pval_limits)
+faith_rhizobiome_heatmap <- plot_heatmap(faith_rhizobiome_data, "Faith Diversity (Rhizobiome)", pval_limits)
+# Combine heatmaps side by side for each metric
+shannon_combined <- shannon_soil_heatmap + shannon_rhizobiome_heatmap + plot_layout(ncol = 2)
+sobs_combined <- sobs_soil_heatmap + sobs_rhizobiome_heatmap + plot_layout(ncol = 2)
+faith_combined <- faith_soil_heatmap + faith_rhizobiome_heatmap + plot_layout(ncol = 2)
+# Display all combined heatmaps
+shannon_combined / sobs_combined / faith_combined + plot_layout(nrow = 3)
+
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+# Function to annotate p-values with significance levels
+annotate_pvalue <- function(pval) {
+  if (pval < 0.001) return("***")
+  else if (pval < 0.01) return("**")
+  else if (pval < 0.05) return("*")
+  else return("ns")
+}
+# Load the data
+shannon_t_test <- read_csv("Shannon_t_test_results.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+sobs_t_test <- read_csv("Sobs_t_test_results.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+faith_t_test <- read_csv("Faith_t_test_results.csv") %>%
+  mutate(Significance = sapply(p.adj, annotate_pvalue))
+# Filter by Type (Soil and Rhizobiome) for each metric
+shannon_soil <- shannon_t_test %>% filter(Type == "Soil")
+shannon_rhizobiome <- shannon_t_test %>% filter(Type == "Rhizobiome")
+sobs_soil <- sobs_t_test %>% filter(Type == "Soil")
+sobs_rhizobiome <- sobs_t_test %>% filter(Type == "Rhizobiome")
+faith_soil <- faith_t_test %>% filter(Type == "Soil")
+faith_rhizobiome <- faith_t_test %>% filter(Type == "Rhizobiome")
+# Prepare data for ggplot heatmap
+prepare_heatmap_data <- function(df) {
+  df %>%
+    select(group1, group2, p.adj, Significance) %>%
+    mutate(
+      group1 = factor(group1, levels = unique(group1)),
+      group2 = factor(group2, levels = unique(group2))
+    )
+}
+# Prepare data for Soil and Rhizobiome
+shannon_soil_data <- prepare_heatmap_data(shannon_soil)
+shannon_rhizobiome_data <- prepare_heatmap_data(shannon_rhizobiome)
+sobs_soil_data <- prepare_heatmap_data(sobs_soil)
+sobs_rhizobiome_data <- prepare_heatmap_data(sobs_rhizobiome)
+faith_soil_data <- prepare_heatmap_data(faith_soil)
+faith_rhizobiome_data <- prepare_heatmap_data(faith_rhizobiome)
+# Define consistent scale limits for p-values across all metrics
+pval_limits <- range(
+  c(
+    shannon_soil_data$p.adj, shannon_rhizobiome_data$p.adj,
+    sobs_soil_data$p.adj, sobs_rhizobiome_data$p.adj,
+    faith_soil_data$p.adj, faith_rhizobiome_data$p.adj
+  ),
+  na.rm = TRUE
+)
+# Heatmap plotting function
+plot_heatmap <- function(data, title, scale_limits) {
+  ggplot(data, aes(x = group2, y = group1, fill = p.adj)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = Significance), color = "black", size = 4) +
+    scale_fill_gradient(low = "lightsteelblue2", high = "salmon2", na.value = "white", name = "p-value", limits = scale_limits) +
+    labs(title = title, x = "pH Category (Columns)", y = "pH Category (Rows)") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+      axis.title.x = element_text(size = 12),
+      axis.title.y = element_text(size = 12)
+    )
+}
+# Create individual heatmaps for each metric and type
+shannon_soil_heatmap <- plot_heatmap(shannon_soil_data, "Shannon Diversity (Soil)", pval_limits)
+shannon_rhizobiome_heatmap <- plot_heatmap(shannon_rhizobiome_data, "Shannon Diversity (Rhizobiome)", pval_limits)
+sobs_soil_heatmap <- plot_heatmap(sobs_soil_data, "Sobs Diversity (Soil)", pval_limits)
+sobs_rhizobiome_heatmap <- plot_heatmap(sobs_rhizobiome_data, "Sobs Diversity (Rhizobiome)", pval_limits)
+faith_soil_heatmap <- plot_heatmap(faith_soil_data, "Faith Diversity (Soil)", pval_limits)
+faith_rhizobiome_heatmap <- plot_heatmap(faith_rhizobiome_data, "Faith Diversity (Rhizobiome)", pval_limits)
+# Combine heatmaps side by side for each metric
+shannon_combined <- shannon_soil_heatmap + shannon_rhizobiome_heatmap + plot_layout(ncol = 2)
+sobs_combined <- sobs_soil_heatmap + sobs_rhizobiome_heatmap + plot_layout(ncol = 2)
+faith_combined <- faith_soil_heatmap + faith_rhizobiome_heatmap + plot_layout(ncol = 2)
+# Display all combined heatmaps
+shannon_combined / sobs_combined / faith_combined + plot_layout(nrow = 3)
+
+
+Phylum Abundance Linear Regression Plot:
+
+  # Aggregate abundance by PR_Category and Phylum
+  aggregated_data <- merged_data %>%
+  group_by(PR_Category, Phylum) %>%
+  summarise(
+    Mean_Abundance = mean(Relative_Abundance),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    PR_Center = as.numeric(gsub("-.*", "", PR_Category))  # Extract numeric PR midpoints
+  )
+# Ensure sufficient data for each Phylum
+lm_results <- aggregated_data %>%
+  group_by(Phylum) %>%
+  filter(n() > 2) %>%  # Keep only Phyla with more than 2 observations
+  summarise(
+    slope = tryCatch(
+      lm(Mean_Abundance ~ PR_Center)$coefficients[2],
+      error = function(e) NA
+    ),
+    p_value = tryCatch(
+      summary(lm(Mean_Abundance ~ PR_Center))$coefficients[2, 4],
+      error = function(e) NA
+    ),
+    .groups = "drop"
+  ) %>%
+  filter(!is.na(slope) & !is.na(p_value))  # Remove rows with NA results
+# Add a significance column
+lm_results <- lm_results %>%
+  mutate(Significant = ifelse(p_value < 0.05, "Yes", "No"))
+# Merge results back with the original data
+significant_phyla <- lm_results %>%
+  filter(Significant == "Yes")
+# Filter for significant phyla in the aggregated data
+significant_data <- aggregated_data %>%
+  filter(Phylum %in% significant_phyla$Phylum)
+# Create a plot for significant trends
+significant_plot <- ggplot(significant_data, aes(x = PR_Center, y = Mean_Abundance, color = Phylum)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed") +
+  labs(
+    title = "Significant Changes in Phylum Abundance Across PR Gradient",
+    x = "PR Center",
+    y = "Mean Abundance"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 10),
+    axis.text.x = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold")
+  )
+# Display the plot
+print(significant_plot)
+# Debugging: Inspect Data
+print(head(aggregated_data))
+summary(aggregated_data)
+print(lm_results)
+print(significant_phyla)
+# Filter for significant phyla in the aggregated data
+significant_data <- aggregated_data %>%
+  filter(Phylum %in% significant_phyla$Phylum)
+# Add `Type` column to the data if it exists in the dataset (adjust if needed)
+significant_data <- merged_data %>%
+  filter(Phylum %in% significant_phyla$Phylum) %>%
+  group_by(PR_Category, Phylum, Type) %>%
+  summarise(
+    Mean_Abundance = mean(Relative_Abundance),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    PR_Center = as.numeric(gsub("-.*", "", PR_Category))
+  )
+# Create a plot for significant trends separated by Type
+significant_plot <- ggplot(significant_data, aes(x = PR_Center, y = Mean_Abundance, color = Phylum)) +
+  geom_point(size = 2, alpha = 0.8) +  # Larger points with slight transparency
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", size = 1.5) +  # Dashed regression lines
+  scale_color_brewer(palette = "Set1", name = "Phylum") +  # Use a visually appealing color palette
+  labs(
+    title = "Significant Changes in Phylum Relative Abundance Across PR Gradient by Type",
+    x = "Precipitation Depth",
+    y = "Mean Abundance"
+  ) +
+  facet_wrap(~Type, scales = "free_y") +  # Separate by Type with independent y-axes
+  theme_bw(base_size = 18) +  # Clean and modern theme with larger base font size
+  theme(
+    plot.title = element_text(face = "bold", size = 22, hjust = 0.5),  # Centered and bold title
+    axis.title = element_text(face = "bold", size = 18),  # Bold axis titles
+    axis.text = element_text(size = 14),  # Larger axis text
+    legend.position = "right",  # Place legend on the right for better visibility
+    legend.title = element_text(face = "bold", size = 14),  # Bold legend title
+    legend.text = element_text(size = 12),  # Larger legend text
+    panel.grid.major = element_line(color = "gray85"),  # Light grid lines for better readability
+    panel.grid.minor = element_blank()  # Remove minor grid lines
+  )
+# Display the enhanced plot
+print(significant_plot)
+
+
+Heatmaps:
+
+Local Soil:
+library(vegan)
+library(ggplot2)
+library(pheatmap)
+library(RColorBrewer)
+# Load the raw data
+ab_raw <- read.csv("level-6.csv", header = TRUE, row.names = 1, sep = ',') 
+ab_raw[] <- lapply(ab_raw, function(x) as.numeric(as.character(x)))
+ab_raw[is.na(ab_raw)] <- 0
+# Define the desired sample order
+desired_order <- c("CO1", "MT1", "ND1", "SD1", "MN1", "NE2", "NM1", "KS2", "OK1", "TX3", 
+                   "LA1", "TX1", "MS1", "AL1", "NC1", "SC1", "MO1", "IN1", "WI1", 
+                   "MI1", "TX2", "IL1", "NE1", "IA1", "KS1", "P1", "P2", "P3", "P4", "P5", "P6")
+# Extract the first three letters of the sample names
+sample_names <- rownames(ab_raw)
+first_three_letters <- substr(sample_names, 1, 3)
+# Create a mapping from first three letters to full sample names
+mapping <- unlist(sapply(desired_order, function(prefix) sample_names[which(first_three_letters == prefix)]))
+# Reorder the raw data based on the desired order
+ab_raw <- ab_raw[mapping, , drop = FALSE]
+# Calculate Shannon's Diversity Index
+H <- diversity(ab_raw, index = "shannon")
+shannon_matrix <- data.matrix(H)
+write.csv(shannon_matrix, file = "shannon_diversity_data.csv")
+sumH <- summary(H)
+cat("\n\n", file = "shannon_diversity_data.csv", append = TRUE)
+capture.output(sumH, file = "shannon_diversity_data.csv", append = TRUE)
+shannon_df <- data.frame(Sample = rownames(ab_raw), ShannonIndex = H)
+# Plot Shannon's Diversity Index
+ggplot(shannon_df, aes(x = Sample, y = ShannonIndex, group = 1)) +
+  geom_line() + 
+  geom_point() +
+  labs(title = "Shannon's Diversity Index", x = "Sample", y = "Shannon Index") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+# Calculate Bray-Curtis Dissimilarity
+bray_curtis <- vegdist(ab_raw, method = "bray")
+bray_curtis_matrix <- as.matrix(bray_curtis)
+rownames(bray_curtis_matrix) <- rownames(ab_raw)
+colnames(bray_curtis_matrix) <- rownames(ab_raw)
+# Plot Bray-Curtis Dissimilarity Heatmap
+pheatmap(bray_curtis_matrix, 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE, 
+         show_rownames = TRUE, 
+         show_colnames = TRUE, 
+         main = "Bray-Curtis Dissimilarity Heatmap",
+         color = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(100))
+
+Rhizobiome:
+library(vegan)
+library(ggplot2)
+library(pheatmap)
+library(RColorBrewer)
+# Load the raw data
+ab_raw <- read.csv("level-6-2-copy.csv", header = TRUE, row.names = 1, sep = ',') 
+ab_raw[] <- lapply(ab_raw, function(x) as.numeric(as.character(x)))
+ab_raw[is.na(ab_raw)] <- 0
+# Define the desired sample order
+desired_order <- c("CO1", "MT1", "ND1", "SD1", "MN1", "NE2", "NM1", "KS2", "OK1", "TX3", 
+                   "LA1", "TX1", "MS1", "AL1", "NC1", "SC1", "MO1", "IN1", "WI1", 
+                   "MI1", "TX2", "IL1", "NE1", "IA1", "KS1", "P1", "P2", "P3", "P4", "P5", "P6")
+# Extract the first three letters of the sample names
+sample_names <- rownames(ab_raw)
+first_three_letters <- substr(sample_names, 1, 3)
+# Create a mapping from first three letters to full sample names
+mapping <- unlist(sapply(desired_order, function(prefix) sample_names[which(first_three_letters == prefix)]))
+# Reorder the raw data based on the desired order
+ab_raw <- ab_raw[mapping, , drop = FALSE]
+# Calculate Shannon's Diversity Index
+H <- diversity(ab_raw, index = "shannon")
+shannon_matrix <- data.matrix(H)
+write.csv(shannon_matrix, file = "shannon_diversity_data.csv")
+sumH <- summary(H)
+cat("\n\n", file = "shannon_diversity_data.csv", append = TRUE)
+capture.output(sumH, file = "shannon_diversity_data.csv", append = TRUE)
+shannon_df <- data.frame(Sample = rownames(ab_raw), ShannonIndex = H)
+# Plot Shannon's Diversity Index
+ggplot(shannon_df, aes(x = Sample, y = ShannonIndex, group = 1)) +
+  geom_line() + 
+  geom_point() +
+  labs(title = "Shannon's Diversity Index", x = "Sample", y = "Shannon Index") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+# Calculate Bray-Curtis Dissimilarity
+bray_curtis <- vegdist(ab_raw, method = "bray")
+bray_curtis_matrix <- as.matrix(bray_curtis)
+rownames(bray_curtis_matrix) <- rownames(ab_raw)
+colnames(bray_curtis_matrix) <- rownames(ab_raw)
+# Plot Bray-Curtis Dissimilarity Heatmap
+pheatmap(bray_curtis_matrix, 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE, 
+         show_rownames = TRUE, 
+         show_colnames = TRUE, 
+         main = "Bray-Curtis Dissimilarity Heatmap",
+         color = colorRampPalette(rev(brewer.pal(n = 11, name = "Spectral")))(100))
+
+Betadisper Analysis:
+
+Local Soil:
+# Load necessary packages
+library(car)
+library(vegan) # Load vegan package for PERMANOVA and betadisper
+library(ggplot2)
+library(gridExtra) # For arranging multiple plots
+# Set the environment variable to increase the buffer size
+Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)  # Increase the buffer size
+# Load data without using row names
+community <- read.csv(file="level-6.csv", header = TRUE, sep = ",", row.names = NULL)
+factors <- read.csv(file="Shared.csv", header = TRUE, sep = ",", row.names = NULL)
+# Check the number of rows in each dataset
+cat("Number of rows in community data:", nrow(community), "\n")
+cat("Number of rows in factors data:", nrow(factors), "\n")
+# Truncate the larger dataset to match the size of the smaller one
+min_rows <- min(nrow(community), nrow(factors))
+community <- community[1:min_rows, ]
+factors <- factors[1:min_rows, ]
+# Combine the datasets
+df <- cbind(community, factors)
+# Log transformation of the variables
+df$sobs_log <- log10(df$Sobs + 1)
+df$shannon_log <- log10(df$Shannon + 1)
+df$Faith_log <- log10(df$Faith + 1)
+# Remove rows with any NA values
+df <- na.omit(df)
+# Check the structure of the dataframe to ensure correct data types
+str(df)
+# Ensure the Ecotype column is a factor
+df$Ecotype <- as.factor(df$Ecotype)
+# Check that the Ecotype column has at least two levels
+if (length(levels(df$Ecotype)) < 2) {
+  stop("The 'Ecotype' column must have at least two levels.")
+}
+# Select numeric columns from the combined dataframe for community data
+community_data <- df[, sapply(df, is.numeric)]
+# Exclude the log-transformed columns as they are not part of the original community data
+community_data <- community_data[, !colnames(community_data) %in% c("sobs_log", "shannon_log", "Faith_log")]
+# Running PERMANOVA using adonis2
+permanova_result <- adonis2(community_data ~ Ecotype, data = df, method = "bray")
+# Display the results
+print(permanova_result)
+# Calculate the distance matrix
+distance_matrix <- vegdist(community_data, method = "bray")
+# Perform betadisper analysis
+betadisper_result <- betadisper(distance_matrix, df$Ecotype)
+# Display betadisper results
+print(betadisper_result)
+# Conduct permutation test for betadisper
+permutest_result <- permutest(betadisper_result, pairwise = TRUE, permutations = 999)
+# Display permutation test results
+print(permutest_result)
+# Extract PCoA coordinates
+pcoa <- betadisper_result$vectors
+# Plot PCoA results
+pcoa_df <- data.frame(pcoa, Ecotype = df$Ecotype)
+pcoa_plot <- ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = Ecotype)) +
+  geom_point() +
+  stat_ellipse() +
+  theme_minimal() +
+  labs(title = "PCoA",
+       x = "PCoA 1",
+       y = "PCoA 2")
+# Extract distances to centroids for boxplot
+distances <- betadisper_result$distances
+distances_df <- data.frame(Distance = distances, Ecotype = df$Ecotype)
+# Plot distances to centroids
+distances_plot <- ggplot(distances_df, aes(x = Ecotype, y = Distance)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Distance to Centroids",
+       x = "Ecotype",
+       y = "Distance to centroid")
+# Arrange the plots side by side
+grid.arrange(pcoa_plot, distances_plot, ncol = 2)
+
+Rhizobiome:
+# Load necessary packages
+library(car)
+library(vegan) # Load vegan package for PERMANOVA and betadisper
+library(ggplot2)
+library(gridExtra) # For arranging multiple plots
+# Set the environment variable to increase the buffer size
+Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)  # Increase the buffer size
+# Load data without using row names
+community <- read.csv(file="level-6-2-copy.csv", header = TRUE, sep = ",", row.names = NULL)
+factors <- read.csv(file="Shared2.csv", header = TRUE, sep = ",", row.names = NULL)
+# Check the number of rows in each dataset
+cat("Number of rows in community data:", nrow(community), "\n")
+cat("Number of rows in factors data:", nrow(factors), "\n")
+# Truncate the larger dataset to match the size of the smaller one
+min_rows <- min(nrow(community), nrow(factors))
+community <- community[1:min_rows, ]
+factors <- factors[1:min_rows, ]
+# Combine the datasets
+df <- cbind(community, factors)
+# Log transformation of the variables
+df$sobs_log <- log10(df$Sobs + 1)
+df$shannon_log <- log10(df$Shannon + 1)
+df$Faith_log <- log10(df$Faith + 1)
+# Remove rows with any NA values
+df <- na.omit(df)
+# Check the structure of the dataframe to ensure correct data types
+str(df)
+# Ensure the Ecotype column is a factor
+df$Ecotype <- as.factor(df$Ecotype)
+# Check that the Ecotype column has at least two levels
+if (length(levels(df$Ecotype)) < 2) {
+  stop("The 'Ecotype' column must have at least two levels.")
+}
+# Select numeric columns from the combined dataframe for community data
+community_data <- df[, sapply(df, is.numeric)]
+# Exclude the log-transformed columns as they are not part of the original community data
+community_data <- community_data[, !colnames(community_data) %in% c("sobs_log", "shannon_log", "Faith_log")]
+# Running PERMANOVA using adonis2
+permanova_result <- adonis2(community_data ~ Ecotype, data = df, method = "bray")
+# Display the results
+print(permanova_result)
+# Calculate the distance matrix
+distance_matrix <- vegdist(community_data, method = "bray")
+# Perform betadisper analysis
+betadisper_result <- betadisper(distance_matrix, df$Ecotype)
+# Display betadisper results
+print(betadisper_result)
+# Conduct permutation test for betadisper
+permutest_result <- permutest(betadisper_result, pairwise = TRUE, permutations = 999)
+# Display permutation test results
+print(permutest_result)
+# Extract PCoA coordinates
+pcoa <- betadisper_result$vectors
+# Plot PCoA results
+pcoa_df <- data.frame(pcoa, Ecotype = df$Ecotype)
+pcoa_plot <- ggplot(pcoa_df, aes(x = PCoA1, y = PCoA2, color = Ecotype)) +
+  geom_point() +
+  stat_ellipse() +
+  theme_minimal() +
+  labs(title = "PCoA",
+       x = "PCoA 1",
+       y = "PCoA 2")
+# Extract distances to centroids for boxplot
+distances <- betadisper_result$distances
+distances_df <- data.frame(Distance = distances, Ecotype = df$Ecotype)
+# Plot distances to centroids
+distances_plot <- ggplot(distances_df, aes(x = Ecotype, y = Distance)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Distance to Centroids",
+       x = "Ecotype",
+       y = "Distance to centroid")
+# Arrange the plots side by side
+grid.arrange(pcoa_plot, distances_plot, ncol = 2)
+
+
+ASV Distribution Analysis:
+
+Local Soil Venn Diagram:
+# Load necessary libraries
+library(tidyverse)
+library(VennDiagram)
+# Read the CSV file
+otu_data <- read_csv("level-6-copy.csv")
+# Transform the OTU data to long format
+long_otu_data <- otu_data %>%
+  pivot_longer(cols = -c(SampleID, Ecotype), names_to = "Microbe", values_to = "Count") %>%
+  filter(Count > 0) # Assuming that a count greater than 0 means presence
+# Function to find unique and shared microbes for an ecotype
+find_unique_shared <- function(data, ecotype) {
+  ecotype_samples <- data %>%
+    filter(Ecotype == ecotype) %>%
+    distinct(Microbe)
+  return(ecotype_samples)
+}
+# Find unique and shared microbes for each ecotype
+dry_microbes <- find_unique_shared(long_otu_data, "Dry")
+mesic_microbes <- find_unique_shared(long_otu_data, "Mesic")
+wet_microbes <- find_unique_shared(long_otu_data, "Wet")
+# Find shared microbes between ecotypes
+shared_dry_mesic <- intersect(dry_microbes$Microbe, mesic_microbes$Microbe)
+shared_dry_wet <- intersect(dry_microbes$Microbe, wet_microbes$Microbe)
+shared_mesic_wet <- intersect(mesic_microbes$Microbe, wet_microbes$Microbe)
+shared_all <- Reduce(intersect, list(dry_microbes$Microbe, mesic_microbes$Microbe, wet_microbes$Microbe))
+# Calculate unique microbes for each ecotype
+unique_dry <- setdiff(dry_microbes$Microbe, union(shared_dry_mesic, shared_dry_wet))
+unique_mesic <- setdiff(mesic_microbes$Microbe, union(shared_dry_mesic, shared_mesic_wet))
+unique_wet <- setdiff(wet_microbes$Microbe, union(shared_dry_wet, shared_mesic_wet))
+# Create a data frame with the results
+results <- data.frame(
+  Category = c("Unique to Dry", "Unique to Mesic", "Unique to Wet", 
+               "Shared between Dry and Mesic", "Shared between Dry and Wet", 
+               "Shared between Mesic and Wet", "Shared among all"),
+  Count = c(
+    length(unique_dry),
+    length(unique_mesic),
+    length(unique_wet),
+    length(shared_dry_mesic) - length(shared_all),
+    length(shared_dry_wet) - length(shared_all),
+    length(shared_mesic_wet) - length(shared_all),
+    length(shared_all)
+  )
+)
+# Write the results to a new CSV file
+write_csv(results, "6-unique_shared_microbes.csv")
+# Create a Venn diagram
+venn.plot <- venn.diagram(
+  x = list(
+    Dry = dry_microbes$Microbe,
+    Mesic = mesic_microbes$Microbe,
+    Wet = wet_microbes$Microbe
+  ),
+  category.names = c("Dry", "Mesic", "Wet"),
+  filename = NULL,
+  output = TRUE,
+  fill = c("sienna3", "chartreuse3", "cornflowerblue")
+)
+# Display the Venn diagram in the R plotting window
+grid.draw(venn.plot)
+
+Rhizobiome Venn Diagram:
+# Load necessary libraries
+library(tidyverse)
+library(VennDiagram)
+# Read the CSV file
+otu_data <- read_csv("level-6-2-copy-copy.csv")
+# Transform the OTU data to long format
+long_otu_data <- otu_data %>%
+  pivot_longer(cols = -c(SampleID, Ecotype), names_to = "Microbe", values_to = "Count") %>%
+  filter(Count > 0) # Assuming that a count greater than 0 means presence
+# Function to find unique and shared microbes for an ecotype
+find_unique_shared <- function(data, ecotype) {
+  ecotype_samples <- data %>%
+    filter(Ecotype == ecotype) %>%
+    distinct(Microbe)
+  return(ecotype_samples)
+}
+# Find unique and shared microbes for each ecotype
+dry_microbes <- find_unique_shared(long_otu_data, "Dry")
+mesic_microbes <- find_unique_shared(long_otu_data, "Mesic")
+wet_microbes <- find_unique_shared(long_otu_data, "Wet")
+# Find shared microbes between ecotypes
+shared_dry_mesic <- intersect(dry_microbes$Microbe, mesic_microbes$Microbe)
+shared_dry_wet <- intersect(dry_microbes$Microbe, wet_microbes$Microbe)
+shared_mesic_wet <- intersect(mesic_microbes$Microbe, wet_microbes$Microbe)
+shared_all <- Reduce(intersect, list(dry_microbes$Microbe, mesic_microbes$Microbe, wet_microbes$Microbe))
+# Calculate unique microbes for each ecotype
+unique_dry <- setdiff(dry_microbes$Microbe, union(shared_dry_mesic, shared_dry_wet))
+unique_mesic <- setdiff(mesic_microbes$Microbe, union(shared_dry_mesic, shared_mesic_wet))
+unique_wet <- setdiff(wet_microbes$Microbe, union(shared_dry_wet, shared_mesic_wet))
+# Create a data frame with the results
+results <- data.frame(
+  Category = c("Unique to Dry", "Unique to Mesic", "Unique to Wet", 
+               "Shared between Dry and Mesic", "Shared between Dry and Wet", 
+               "Shared between Mesic and Wet", "Shared among all"),
+  Count = c(
+    length(unique_dry),
+    length(unique_mesic),
+    length(unique_wet),
+    length(shared_dry_mesic) - length(shared_all),
+    length(shared_dry_wet) - length(shared_all),
+    length(shared_mesic_wet) - length(shared_all),
+    length(shared_all)
+  )
+)
+# Write the results to a new CSV file
+write_csv(results, "6-2-unique_shared_microbes.csv")
+# Create a Venn diagram
+venn.plot <- venn.diagram(
+  x = list(
+    Dry = dry_microbes$Microbe,
+    Mesic = mesic_microbes$Microbe,
+    Wet = wet_microbes$Microbe
+  ),
+  category.names = c("Dry", "Mesic", "Wet"),
+  filename = NULL,
+  output = TRUE,
+  fill = c("sienna3", "chartreuse3", "cornflowerblue")
+)
+# Display the Venn diagram in the R plotting window
+grid.draw(venn.plot)
+
+Combined Venn Diagram:
+# Load necessary libraries
+    library(tidyverse)
+    library(ggVennDiagram)
+    library(venn)
+    # Increase the connection buffer size to avoid buffer size errors
+    Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+    # Read the CSV file
+    asv_data <- read_csv("Combined copy.csv")
+    # Transform the ASV data to long format and filter out zero counts
+    long_asv_data <- asv_data %>%
+      pivot_longer(cols = -c(SampleID, Ecotype, Type), names_to = "ASV", values_to = "Count") %>%
+      filter(Count > 0)
+    # Group by Ecotype and Type, and create a list of unique ASVs for each group with specific labels
+    data_list <- long_asv_data %>%
+      group_by(Ecotype, Type) %>%
+      summarise(ASVs = list(unique(ASV))) %>%
+      ungroup() %>%
+      mutate(Group = case_when(
+        Ecotype == "Dry" & Type == "Soil" ~ "Dry-Soil",
+        Ecotype == "Dry" & Type == "Rhizobiome" ~ "Dry-Rhizobiome",
+        Ecotype == "Mesic" & Type == "Soil" ~ "Mesic-Soil",
+        Ecotype == "Mesic" & Type == "Rhizobiome" ~ "Mesic-Rhizobiome",
+        Ecotype == "Wet" & Type == "Soil" ~ "Wet-Soil",
+        Ecotype == "Wet" & Type == "Rhizobiome" ~ "Wet-Rhizobiome",
+        TRUE ~ "Other"
+      )) %>%
+      select(Group, ASVs) %>%
+      deframe()
+    # Combine all ASVs and remove duplicates to get the total unique ASVs
+    unique_asvs <- unique(unlist(data_list))
+    total_unique_asvs <- length(unique_asvs)
+    # Create a Venn object to calculate intersections
+    venn_obj <- venn(data_list)
+    # Extract the intersections and calculate the percentages
+    intersections <- attr(venn_obj, "intersections")
+    # Calculate unique percentages
+    percentages <- sapply(intersections, function(x) {
+      length(x) / total_unique_asvs * 100
+    })
+    # Print the calculated percentages
+    cat("Unique percentages for each intersection:\n")
+    for (name in names(percentages)) {
+      cat(name, ": ", round(percentages[[name]], 2), "%\n", sep="")
+    }
+    # Create the Venn diagram with a custom continuous color gradient
+    p <- ggVennDiagram(data_list, label = "percent") +  # Label the diagram with percentages
+      scale_fill_gradientn(colors = c("gray95", "gray60", "gray50","gray40","gray20")) +  # Use a customized color gradient
+      theme(
+        legend.position = "right",  # Position the legend on the right
+        panel.background = element_blank(),  # Remove the background
+        plot.background = element_blank(),  # Remove the plot background
+        axis.title = element_blank(),  # Remove axis titles
+        axis.text = element_blank(),  # Remove axis text
+        axis.ticks = element_blank()   # Remove axis ticks
+      ) +
+      ggtitle("ASV Distribution Across Ecotypes and Types") +  # Add a title
+      theme(plot.title = element_text(hjust = 0.5, size = 14))  # Center and style the title
+    # Print the plot
+    print(p)
+    # Load necessary libraries
+    library(tidyverse)
+    library(venn)
+    # Increase the connection buffer size to avoid buffer size errors
+    Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+    # Read the CSV file
+    asv_data <- read_csv("Combined copy.csv")
+    # Transform the ASV data to long format and filter out zero counts
+    long_asv_data <- asv_data %>%
+      pivot_longer(cols = -c(SampleID, Ecotype, Type), names_to = "ASV", values_to = "Count") %>%
+      filter(Count > 0)
+    # Group by Ecotype and Type, create a list of unique ASVs for each group with specific labels
+    data_list <- long_asv_data %>%
+      group_by(Ecotype, Type) %>%
+      summarise(ASVs = list(unique(ASV))) %>%
+      ungroup() %>%
+      mutate(Category = case_when(
+        Ecotype == "Dry" & Type == "Soil" ~ "Dry-Soil",
+        Ecotype == "Dry" & Type == "Rhizobiome" ~ "Dry-Rhizobiome",
+        Ecotype == "Mesic" & Type == "Soil" ~ "Mesic-Soil",
+        Ecotype == "Mesic" & Type == "Rhizobiome" ~ "Mesic-Rhizobiome",
+        Ecotype == "Wet" & Type == "Soil" ~ "Wet-Soil",
+        Ecotype == "Wet" & Type == "Rhizobiome" ~ "Wet-Rhizobiome",
+        TRUE ~ "Other"
+      )) %>%
+      filter(Category != "Other") %>%
+      select(Category, ASVs) %>%
+      deframe()
+    # Combine all ASVs and remove duplicates to get the total unique ASVs
+    unique_asvs <- unique(unlist(data_list))
+    total_unique_asvs <- length(unique_asvs)
+    # Create a Venn object to calculate intersections
+    venn_obj <- venn(data_list)
+    # Extract the intersections for all combinations
+    intersections <- attr(venn_obj, "intersections")
+    # Convert intersections list into a data frame for CSV output
+    intersection_df <- bind_rows(
+      lapply(names(intersections), function(x) {
+        data.frame(Combination = x, ASV = intersections[[x]])
+      })
+    )
+    # Save the intersections to a CSV file
+    write_csv(intersection_df, "asv_intersections_combinations.csv")
+    # Print a message indicating successful save
+    cat("ASV intersections for all combinations have been saved to 'asv_intersections_combinations.csv'.")
+
+Phylum Intersection Analysis:
+  # Load necessary libraries
+  library(tidyverse)
+  library(venn)
+  library(RColorBrewer)
+  library(patchwork) # For combining plots side by side
+  # Increase the connection buffer size to avoid buffer size errors
+  Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+  # Read the CSV file
+  asv_data <- read_csv("Combined copy.csv")
+  # Transform the ASV data to long format and filter out zero counts
+  long_asv_data <- asv_data %>%
+    pivot_longer(cols = -c(SampleID, Ecotype, Type), names_to = "ASV", values_to = "Count") %>%
+    filter(Count > 0)
+  # Exclude the mesic ecotype
+  long_asv_data <- long_asv_data %>%
+    filter(Ecotype != "Mesic")
+  # Extract everything between ";p__" and the next ";" in the ASV names
+  long_asv_data <- long_asv_data %>%
+    mutate(
+      Phylum = str_extract(ASV, "(?<=;p__)[^;]+")  # Extract text after ";p__" and before the next ";"
+    )
+  # Create the `Category` column for each combination of Ecotype and Type
+  long_asv_data <- long_asv_data %>%
+    mutate(Category = case_when(
+      Ecotype == "Dry" & Type == "Soil" ~ "Dry-Soil",
+      Ecotype == "Dry" & Type == "Rhizobiome" ~ "Dry-Rhizobiome",
+      Ecotype == "Wet" & Type == "Soil" ~ "Wet-Soil",
+      Ecotype == "Wet" & Type == "Rhizobiome" ~ "Wet-Rhizobiome",
+      TRUE ~ "Other"
+    )) %>%
+    filter(Category != "Other")  # Exclude "Other" categories
+  # Prepare data for intersections (only wet and dry remain)
+  data_list <- long_asv_data %>%
+    group_by(Category) %>%
+    summarise(ASVs = list(unique(ASV)), .groups = "drop") %>%
+    deframe()
+  # Create a Venn diagram object for intersections
+  venn_obj <- venn(data_list)
+  # Extract intersections into a data frame
+  intersections <- attr(venn_obj, "intersections")
+  intersection_df <- bind_rows(
+    lapply(names(intersections), function(x) {
+      data.frame(Combination = x, ASVs = intersections[[x]])
+    })
+  )
+  # Count the number of ASVs in each intersection and link to their `Phylum`
+  intersection_counts <- intersection_df %>%
+    left_join(long_asv_data, by = c("ASVs" = "ASV")) %>%  # Link ASVs back to their Phylum
+    group_by(Combination, Phylum) %>%
+    summarise(Count = n(), .groups = "drop") %>%
+    group_by(Combination) %>%
+    mutate(Relative_Frequency = Count / sum(Count)) %>%
+    ungroup()
+  # Combine relative frequencies for individual categories (no intersections)
+  relative_freq_data <- long_asv_data %>%
+    group_by(Category, Phylum) %>%
+    summarise(Total_Count = sum(Count), .groups = "drop") %>%
+    group_by(Category) %>%
+    mutate(Relative_Frequency = Total_Count / sum(Total_Count)) %>%
+    ungroup() %>%
+    mutate(Combination = Category)  # Label individual categories as combinations
+  # Merge datasets
+  combined_data <- bind_rows(
+    relative_freq_data %>%
+      select(Combination, Phylum, Relative_Frequency),
+    intersection_counts %>%
+      select(Combination, Phylum, Relative_Frequency)
+  )
+  # Define the enhanced contrasting color palette
+  distinct_contrasting_colors <- c(
+    "#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9", "#BAE1FF", 
+    "#E3BAFF", "#BADAFF", "#FFBAE3", "#C3FFBA", "#FFC9BA",
+    "#FFD700", "#ADFF2F", "#32CD32", "#00FF7F", "#7CFC00", 
+    "#00CED1", "#1E90FF", "#4169E1", "#8A2BE2", "#9932CC", 
+    "#FF4500", "#FF6347", "#FFA07A", "#FF69B4", "#FF1493", 
+    "#FFD1DC", "#E6E6FA", "#DDA0DD", "#CD5C5C", "#FFB6C1", 
+    "#FFD700", "#FFA500", "#FF8C00", "#DAA520", "#B8860B", 
+    "#8B0000", "#800000", "#A52A2A", "#5F9EA0", "#4682B4", 
+    "#0000CD", "#00008B", "#191970", "#006400", "#008000", 
+    "#2E8B57", "#3CB371", "#228B22", "#008B8B", "#20B2AA", 
+    "#FFA07A", "#FF6347", "#FF4500", "#FF0000", "#DC143C", 
+    "#9400D3", "#4B0082", "#8A2BE2", "#7B68EE", "#6A5ACD"
+  )
+  # Plot 1: Without intersections
+  plot_without_intersections <- ggplot(relative_freq_data, aes(x = Category, y = Relative_Frequency, fill = Phylum)) +
+    geom_bar(stat = "identity", width = 0.7, color = "black") +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    scale_fill_manual(
+      values = distinct_contrasting_colors,
+      name = "Phylum"
+    ) +
+    labs(
+      title = "ASV Distribution Without Intersections (Dry and Wet Only)",
+      x = "Category",
+      y = "Relative Frequency (%)",
+      fill = "Phylum"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+      axis.title = element_text(size = 14),
+      plot.title = element_text(size = 16, face = "bold"),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 8),
+      legend.key.size = unit(0.5, "cm")
+    )
+  
+  # Plot 2: With only intersections
+  plot_with_intersections <- ggplot(intersection_counts, aes(x = Combination, y = Relative_Frequency, fill = Phylum)) +
+    geom_bar(stat = "identity", width = 0.7, color = "black") +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    scale_fill_manual(
+      values = distinct_contrasting_colors,
+      name = "Phylum"
+    ) +
+    labs(
+      title = "ASV Distribution With Only Intersections (Dry and Wet Only)",
+      x = "Intersection",
+      y = "Relative Frequency (%)",
+      fill = "Phylum"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+      axis.title = element_text(size = 10),
+      plot.title = element_text(size = 10, face = "bold"),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 8),
+      legend.key.size = unit(0.5, "cm")
+    )
+  # Combine the two plots side by side with legend at the bottom
+  combined_plot <- plot_without_intersections + plot_with_intersections +
+    plot_layout(guides = "collect") +
+    plot_annotation(title = "Comparison of ASV Distribution") &
+    theme(
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      legend.position = "bottom"  # Legend moved to the bottom
+    )
+  # Display the combined plot
+  print(combined_plot)
+
+Log2Fold Change Analysis:
+  # Load necessary libraries
+  library(tidyverse)
+  library(venn)
+  # Increase the connection buffer size to avoid buffer size errors
+  Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+  # Read the CSV file
+  asv_data <- read_csv("Combined copy.csv")
+  # Transform the ASV data to long format and filter out zero counts
+  long_asv_data <- asv_data %>%
+    pivot_longer(cols = -c(SampleID, Ecotype, Type), names_to = "ASV", values_to = "Count") %>%
+    filter(Count > 0)
+  # Group by Ecotype and Type, create a list of unique ASVs for each group with specific labels
+  data_list <- long_asv_data %>%
+    group_by(Ecotype, Type) %>%
+    summarise(ASVs = list(unique(ASV))) %>%
+    ungroup() %>%
+    mutate(Category = case_when(
+      Ecotype == "Dry" & Type == "Soil" ~ "Dry-Soil",
+      Ecotype == "Dry" & Type == "Rhizobiome" ~ "Dry-Rhizobiome",
+      Ecotype == "Mesic" & Type == "Soil" ~ "Mesic-Soil",
+      Ecotype == "Mesic" & Type == "Rhizobiome" ~ "Mesic-Rhizobiome",
+      Ecotype == "Wet" & Type == "Soil" ~ "Wet-Soil",
+      Ecotype == "Wet" & Type == "Rhizobiome" ~ "Wet-Rhizobiome",
+      TRUE ~ "Other"
+    )) %>%
+    filter(Category != "Other") %>%
+    select(Category, ASVs) %>%
+    deframe()
+  # Combine all ASVs and remove duplicates to get the total unique ASVs
+  unique_asvs <- unique(unlist(data_list))
+  total_unique_asvs <- length(unique_asvs)
+  # Create a Venn object to calculate intersections
+  venn_obj <- venn(data_list)
+  # Extract the intersections for all combinations
+  intersections <- attr(venn_obj, "intersections")
+   # Convert intersections list into a data frame for CSV output
+  intersection_df <- bind_rows(
+    lapply(names(intersections), function(x) {
+      data.frame(Combination = x, ASV = intersections[[x]])
+    })
+  )
+  # Join the intersections with the original ASV data to include sample and count information
+  intersection_with_samples <- intersection_df %>%
+    left_join(long_asv_data, by = "ASV") %>%
+    select(Combination, ASV, SampleID, Ecotype, Type, Count)
+  # Save the intersections with counts and individual sample IDs to a CSV file
+  write_csv(intersection_with_samples, "asv_intersections_individual_samples.csv")
+  # Print a message indicating successful save
+  cat("ASV intersections with individual sample IDs and counts for all combinations have been saved to 'asv_intersections_individual_samples.csv'.")
+  # Load necessary library
+  library(tidyverse)
+  # Read the CSV file
+  asv_data <- read_csv("asv_intersections_individual_samples.csv")
+  # Modify the ASV column to extract only the portion from 'p__' to the next ';'
+  modified_asv_data <- asv_data %>%
+    mutate(ASV = str_extract(ASV, "p__[^;]*"))
+  # Save the modified dataset to a new CSV file
+  write_csv(modified_asv_data, "modified_asv_data.csv")
+   # Print a message indicating the new file has been saved
+  cat("Modified ASV data with only phylum names has been saved to 'modified_asv_data.csv'.")
+  # Load necessary library
+  library(tidyverse)
+  # Read the CSV file
+  asv_data <- read_csv("modified_asv_data.csv")
+  # Calculate relative abundance
+  relative_abundance_data <- asv_data %>%
+    group_by(SampleID) %>%
+    mutate(RelativeAbundance = Count / sum(Count)) %>%
+    ungroup() %>%
+    select(-Count) %>% # Replace Count with RelativeAbundance
+    rename(Count = RelativeAbundance)
+  # Save the modified dataset to a new CSV file
+  write_csv(relative_abundance_data, "relative_abundance_data.csv")
+  # Print a message indicating the new file has been saved
+  cat("ASV data with relative abundance has been saved to 'relative_abundance_data.csv'.")
+
+# Load required libraries
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+  # Load the data
+  data <- read.csv("relative_abundance_data.csv")
+  # Define the combinations to compare
+  comparisons <- list(
+    "Wet-Soil vs. Dry-Soil" = c("Wet-Soil", "Dry-Soil"),
+    "Wet-Rhizobiome vs. Dry-Rhizobiome" = c("Wet-Rhizobiome", "Dry-Rhizobiome"),
+    "Dry-Soil vs. Dry-Rhizobiome" = c("Dry-Soil", "Dry-Rhizobiome"),
+    "Wet-Soil vs. Wet-Rhizobiome" = c("Wet-Soil", "Wet-Rhizobiome"),
+    "Wet-Rhizobiome:Wet-Soil vs. Dry-Rhizobiome:Dry-Soil" = c("Wet-Rhizobiome:Wet-Soil", "Dry-Rhizobiome:Dry-Soil")
+  )
+  # Initialize a results data frame
+  results <- data.frame()
+  # Calculate log2 fold changes for each comparison
+  for (comp_name in names(comparisons)) {
+    groups <- comparisons[[comp_name]]
+    
+    # Filter data for the two groups
+    subset_data <- data %>%
+      filter(Combination %in% groups) %>%
+      group_by(ASV, Combination) %>%
+      summarise(Mean_Relative_Abundance = mean(Relative_Abundance), .groups = 'drop')
+    # Spread data for fold change calculation
+    spread_data <- subset_data %>%
+      pivot_wider(names_from = Combination, values_from = Mean_Relative_Abundance, values_fill = 0)
+    # Calculate log2 fold change
+    spread_data <- spread_data %>%
+      mutate(
+        Log2_Fold_Change = log2((!!sym(groups[1]) + 1e-6) / (!!sym(groups[2]) + 1e-6)),
+        Comparison = comp_name
+      )
+    # Append results
+    results <- bind_rows(results, spread_data)
+  }
+  # Define a custom color palette
+  custom_colors <- c(
+    "Wet-Soil vs. Dry-Soil" = "darkslategray4",
+    "Wet-Rhizobiome vs. Dry-Rhizobiome" = "slategray3",
+    "Dry-Soil vs. Dry-Rhizobiome" = "lightsalmon",
+    "Wet-Soil vs. Wet-Rhizobiome" = "thistle3",
+    "Wet-Rhizobiome:Wet-Soil vs. Dry-Rhizobiome:Dry-Soil" = "sienna3"
+  )
+  # Filter based on Log2 Fold Change threshold (e.g., abs(Log2_Fold_Change) > 1)
+  threshold <- 2
+  filtered_results <- results %>%
+    filter(abs(Log2_Fold_Change) > threshold)
+  # Plot the results
+  ggplot(filtered_results, aes(x = reorder(ASV, Log2_Fold_Change), y = Log2_Fold_Change, fill = Comparison)) +
+    geom_bar(stat = "identity", position = position_dodge(width = 0.8), color = "black", size = 0.2) +
+    facet_wrap(~ Comparison, scales = "free_y", ncol = 2) +
+    scale_fill_manual(values = custom_colors) +
+    theme_minimal(base_size = 14) +
+    theme(
+      panel.grid.major = element_line(color = "gray90", size = 0.5),
+      panel.grid.minor = element_blank(),
+      strip.background = element_rect(fill = "gray95", color = "black"),
+      strip.text = element_text(size = 12, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+      axis.text.y = element_text(size = 10),
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+      legend.position = "bottom",
+      legend.title = element_text(size = 12, face = "bold"),
+      legend.text = element_text(size = 10)
+    ) +
+    labs(
+      title = paste("Log2 Fold Change in Phyla (Filtered by Threshold >", threshold, ")"),
+      subtitle = "Significant changes in relative abundance between conditions",
+      x = "ASV (Amplicon Sequence Variant)",
+      y = "Log2 Fold Change",
+      fill = "Comparison"
+    ) +
+    coord_flip()
+
+Stochasticity:
+ # Load necessary libraries
+    library(ggplot2)
+    library(dplyr)
+    library(ggthemes)
+    library(ggtext)
+    # Read the data files
+    location_soil <- read.csv("location_Soil.csv")
+    location_root <- read.csv("location_Root.csv")
+    metadata_soil <- read.csv("Metadata.csv")
+    metadata_root <- read.csv("Metadata2.csv")
+    # Remove duplicates in metadata
+    metadata_cleaned_soil <- metadata_soil %>%
+      distinct(Location2, .keep_all = TRUE)
+    metadata_cleaned_root <- metadata_root %>%
+      distinct(Location2, .keep_all = TRUE)
+    # Filter and label types
+    filtered_soil <- location_soil %>%
+      filter(Group1 == Group2 & !is.na(Distance)) %>%
+      left_join(metadata_cleaned_soil, by = c("Group1" = "Location2")) %>%
+      mutate(Type = "Soil")
+    filtered_root <- location_root %>%
+      filter(Group1 == Group2 & !is.na(Distance)) %>%
+      left_join(metadata_cleaned_root, by = c("Group1" = "Location2")) %>%
+      mutate(Type = "Rhizobiome")
+    # Combine datasets
+    combined_data <- bind_rows(filtered_soil, filtered_root)
+    # Sort Group1 by PR
+    combined_data <- combined_data %>%
+      mutate(Group1 = factor(Group1, levels = metadata_cleaned_soil %>%
+                               arrange(desc(PR)) %>%
+                               pull(Location2)))
+    # Summarize means and standard deviations
+    mean_data <- combined_data %>%
+      group_by(Type, Ecotype, Group1) %>%
+      summarize(mean_distance = mean(Distance),
+                sd_distance = sd(Distance),
+                .groups = "drop")
+    # Custom color palette
+    ecotype_colors <- c("Wet" = "#3399FF", "Dry" = "#FF6666", "Mesic" = "#66CC66", "NA" = "#999999")
+    # --- SOIL PLOT ---
+    soil_data <- combined_data %>% filter(Type == "Soil")
+    soil_means <- mean_data %>% filter(Type == "Soil")
+    ggplot(soil_data, aes(x = Group1, y = Distance, fill = Ecotype)) +
+      geom_boxplot(aes(group = interaction(Group1, Type)), 
+                   position = position_dodge(width = 0.8),
+                   alpha = 0.2, color = "black", outlier.shape = NA) +
+      geom_jitter(width = 0.1, shape = 21, size = 2, color = "black", alpha = 0.4) +
+      geom_errorbar(data = soil_means,
+                    aes(x = Group1, ymin = mean_distance - sd_distance, ymax = mean_distance + sd_distance, color = Ecotype),
+                    width = 0.3,
+                    position = position_dodge(width = 0.8),
+                    inherit.aes = FALSE) +
+      geom_line(data = soil_means, 
+                aes(x = Group1, y = mean_distance, group = Ecotype, color = Ecotype),
+                size = 1.1, alpha = 1) +
+      geom_point(data = soil_means, 
+                 aes(x = Group1, y = mean_distance, color = Ecotype),
+                 size = 3) +
+      scale_fill_manual(values = ecotype_colors) +
+      scale_color_manual(values = ecotype_colors) +
+      labs(title = "Stochasticity in Local Soil by Location and Ecotype",
+           x = "Location (Sorted by Precipitation Depth)",
+           y = "Beta Dispersion Distance",
+           fill = "Ecotype", color = "Ecotype") +
+      theme_linedraw(base_size = 14) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "right",
+            plot.title = element_text(size = 16, face = "bold"))
+    # --- RHIZOBIOME PLOT ---
+    rhizo_data <- combined_data %>% filter(Type == "Rhizobiome" & !is.na(Ecotype))
+    rhizo_means <- mean_data %>% filter(Type == "Rhizobiome" & !is.na(Ecotype))
+    ggplot(rhizo_data, aes(x = Group1, y = Distance, fill = Ecotype)) +
+      geom_boxplot(aes(group = interaction(Group1, Type)), 
+                   position = position_dodge(width = 0.8),
+                   alpha = 0.2, color = "black", outlier.shape = NA) +
+      geom_jitter(width = 0.1, shape = 21, size = 2, color = "black", alpha = 0.4) +
+      geom_errorbar(data = rhizo_means,
+                    aes(x = Group1, ymin = mean_distance - sd_distance, ymax = mean_distance + sd_distance, color = Ecotype),
+                    width = 0.3,
+                    position = position_dodge(width = 0.8),
+                    inherit.aes = FALSE) +
+      geom_line(data = rhizo_means, 
+                aes(x = Group1, y = mean_distance, group = Ecotype, color = Ecotype),
+                size = 1.1, alpha = 1) +
+      geom_point(data = rhizo_means, 
+                 aes(x = Group1, y = mean_distance, color = Ecotype),
+                 size = 3) +
+      scale_fill_manual(values = ecotype_colors) +
+      scale_color_manual(values = ecotype_colors) +
+      labs(title = "Stochasticity in Rhizobiome by Location and Ecotype",
+           x = "Location (Sorted by Precipitation Depth)",
+           y = "Beta Dispersion Distance",
+           fill = "Ecotype", color = "Ecotype") +
+      theme_linedraw(base_size = 14) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "right",
+            plot.title = element_text(size = 16, face = "bold"))
+
+Raw Phylum Abundance Plots:
+
+Ecotype:
+# Load necessary libraries
+  library(ggplot2)
+  library(tidyr)
+  library(dplyr)
+  library(patchwork)  # For combining plots side by side
+  library(tidyverse)  # Contains useful data manipulation functions
+  # Define the custom color palette
+  distinct_contrasting_colors <- c(
+    "#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9", "#BAE1FF", 
+    "#E3BAFF", "#BADAFF", "#FFBAE3", "#C3FFBA", "#FFC9BA",
+    "#FFD700", "#ADFF2F", "#32CD32", "#00FF7F", "#7CFC00", 
+    "#00CED1", "#1E90FF", "#4169E1", "#8A2BE2", "#9932CC", 
+    "#FF4500", "#FF6347", "#FFA07A", "#FF69B4", "#FF1493", 
+    "#FFD1DC", "#E6E6FA", "#DDA0DD", "#CD5C5C", "#FFB6C1", 
+    "#FFD700", "#FFA500", "#FF8C00", "#DAA520", "#B8860B", 
+    "#8B0000", "#800000", "#A52A2A", "#5F9EA0", "#4682B4", 
+    "#0000CD", "#00008B", "#191970", "#006400", "#008000", 
+    "#2E8B57", "#3CB371", "#228B22", "#008B8B", "#20B2AA", 
+    "#FFA07A", "#FF6347", "#FF4500", "#FF0000", "#DC143C", 
+    "#9400D3", "#4B0082", "#8A2BE2", "#7B68EE", "#6A5ACD"
+  )
+  # Load both datasets
+  asv_data1 <- read.csv("level-2.csv")
+  metadata1 <- read.csv("Metadata.csv")
+  asv_data2 <- read.csv("level-2-2.csv")
+  metadata2 <- read.csv("Metadata2.csv")
+  # Merge ASV data with metadata for both datasets
+  merged_data1 <- merge(asv_data1, metadata1, by = "SampleID")
+  merged_data2 <- merge(asv_data2, metadata2, by = "SampleID")
+  # Extract only Phylum from ASV names and remove prefixes
+  merged_data1 <- merged_data1 %>%
+    rename_with(~ gsub(".*;p__([^;]+).*", "\\1", .), starts_with("d__"))
+  merged_data2 <- merged_data2 %>%
+    rename_with(~ gsub(".*;p__([^;]+).*", "\\1", .), starts_with("d__"))
+  # Reshape both datasets to long format
+  data_long1 <- pivot_longer(
+    merged_data1, 
+    cols = starts_with("d__"),  # Only ASV columns
+    names_to = "Phylum", 
+    values_to = "Abundance"
+  )
+  data_long2 <- pivot_longer(
+    merged_data2, 
+    cols = starts_with("d__"),  # Only ASV columns
+    names_to = "Phylum", 
+    values_to = "Abundance"
+  )
+  # Summarize abundance by Ecotype and Phylum for both datasets
+  grouped_data1 <- data_long1 %>%
+    group_by(Ecotype, Phylum) %>%
+    summarize(Abundance = sum(Abundance), .groups = "drop") %>%
+    group_by(Ecotype) %>%
+    mutate(Relative_Frequency = Abundance / sum(Abundance))
+  grouped_data2 <- data_long2 %>%
+    group_by(Ecotype, Phylum) %>%
+    summarize(Abundance = sum(Abundance), .groups = "drop") %>%
+    group_by(Ecotype) %>%
+    mutate(Relative_Frequency = Abundance / sum(Abundance))
+  # Assign consistent colors for the same Phyla across both datasets
+  all_phyla <- unique(c(unique(grouped_data1$Phylum), unique(grouped_data2$Phylum)))
+  num_phyla <- length(all_phyla)
+  # Use the custom distinct colors
+  phyla_colors <- distinct_contrasting_colors[1:num_phyla]
+  names(phyla_colors) <- all_phyla  # Assign colors to Phyla names
+  # Create the first plot
+  plot1 <- ggplot(grouped_data1, aes(x = Ecotype, y = Relative_Frequency, fill = Phylum)) +
+    geom_bar(stat = "identity", width = 0.7, color = "black") +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    scale_fill_manual(values = phyla_colors, guide = "none") +  # Apply consistent colors, hide legend
+    labs(title = "Local Soil", x = "Ecotype", y = "Relative Frequency (%)") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+      axis.title = element_text(size = 14),
+      plot.title = element_text(size = 16, face = "bold"),
+      legend.position = "none"
+    )
+  # Create the second plot
+  plot2 <- ggplot(grouped_data2, aes(x = Ecotype, y = Relative_Frequency, fill = Phylum)) +
+    geom_bar(stat = "identity", width = 0.7, color = "black") +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    scale_fill_manual(values = phyla_colors, name = "Phylum") +  # Apply consistent colors
+    labs(title = "Rhizobiome", x = "Ecotype", y = "Relative Frequency (%)", fill = "Phylum") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+      axis.title = element_text(size = 14),
+      plot.title = element_text(size = 16, face = "bold")
+    )
+  # Combine the plots side by side with shared legend
+  combined_plot <- (plot1 + plot2) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(title = "Comparison of Local Soil and Rhizobiome by Ecotype (Phyla)") &
+    theme(
+      legend.position = "bottom", 
+      legend.title = element_text(size = 12), 
+      legend.text = element_text(size = 10)
+    )
+  # Display combined plot
+  print(combined_plot)
+
+Location:
+​​# Load necessary libraries
+  library(ggplot2)
+  library(tidyr)
+  library(dplyr)
+  library(patchwork) # For combining plots side by side
+  library(venn)
+  library(tidyverse)
+  # Define the custom color palette
+  distinct_contrasting_colors <- c(
+    "#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9", "#BAE1FF", 
+    "#E3BAFF", "#BADAFF", "#FFBAE3", "#C3FFBA", "#FFC9BA",
+    "#FFD700", "#ADFF2F", "#32CD32", "#00FF7F", "#7CFC00", 
+    "#00CED1", "#1E90FF", "#4169E1", "#8A2BE2", "#9932CC", 
+    "#FF4500", "#FF6347", "#FFA07A", "#FF69B4", "#FF1493", 
+    "#FFD1DC", "#E6E6FA", "#DDA0DD", "#CD5C5C", "#FFB6C1", 
+    "#FFD700", "#FFA500", "#FF8C00", "#DAA520", "#B8860B", 
+    "#8B0000", "#800000", "#A52A2A", "#5F9EA0", "#4682B4", 
+    "#0000CD", "#00008B", "#191970", "#006400", "#008000", 
+    "#2E8B57", "#3CB371", "#228B22", "#008B8B", "#20B2AA", 
+    "#FFA07A", "#FF6347", "#FF4500", "#FF0000", "#DC143C", 
+    "#9400D3", "#4B0082", "#8A2BE2", "#7B68EE", "#6A5ACD"
+  )
+  # Load both datasets
+  asv_data1 <- read.csv("level-2.csv")
+  metadata1 <- read.csv("Metadata.csv")
+  asv_data2 <- read.csv("level-2-2.csv")
+  metadata2 <- read.csv("Metadata2.csv")
+  # Merge ASV data with metadata for both datasets
+  merged_data1 <- merge(asv_data1, metadata1, by = "SampleID")
+  merged_data2 <- merge(asv_data2, metadata2, by = "SampleID")
+  # Extract only Phylum from ASV names and remove prefixes
+  merged_data1 <- merged_data1 %>%
+    rename_with(~ gsub(".*;p__([^;]+).*", "\\1", .), starts_with("d__"))
+  merged_data2 <- merged_data2 %>%
+    rename_with(~ gsub(".*;p__([^;]+).*", "\\1", .), starts_with("d__"))
+  # Reshape both datasets to long format
+  data_long1 <- pivot_longer(
+    merged_data1, 
+    cols = starts_with("d__"),  # Only ASV columns
+    names_to = "Phylum", 
+    values_to = "Abundance"
+  )
+  data_long2 <- pivot_longer(
+    merged_data2, 
+    cols = starts_with("d__"),  # Only ASV columns
+    names_to = "Phylum", 
+    values_to = "Abundance"
+  )
+  # Summarize abundance by Location and Phylum for both datasets
+  grouped_data1 <- data_long1 %>%
+    group_by(Location, Phylum) %>%
+    summarize(Abundance = sum(Abundance), .groups = "drop") %>%
+    group_by(Location) %>%
+    mutate(Relative_Frequency = Abundance / sum(Abundance))
+  grouped_data2 <- data_long2 %>%
+    group_by(Location, Phylum) %>%
+    summarize(Abundance = sum(Abundance), .groups = "drop") %>%
+    group_by(Location) %>%
+    mutate(Relative_Frequency = Abundance / sum(Abundance))
+  # Assign consistent colors for the same Phyla across both datasets
+  all_phyla <- unique(c(unique(grouped_data1$Phylum), unique(grouped_data2$Phylum)))
+  num_phyla <- length(all_phyla)
+  # Use the custom distinct colors
+  phyla_colors <- distinct_contrasting_colors[1:num_phyla]
+  names(phyla_colors) <- all_phyla # Assign colors to Phyla names
+  # Create the first plot
+  plot1 <- ggplot(grouped_data1, aes(x = Location, y = Relative_Frequency, fill = Phylum)) +
+    geom_bar(stat = "identity", width = 0.7, color = "black") +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    scale_fill_manual(values = phyla_colors, guide = "none") + # Apply consistent colors, hide legend
+    labs(title = "Local Soil", x = "Location", y = "Relative Frequency (%)") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+      axis.title = element_text(size = 14),
+      plot.title = element_text(size = 16, face = "bold"),
+      legend.position = "none"
+    )
+  # Create the second plot
+  plot2 <- ggplot(grouped_data2, aes(x = Location, y = Relative_Frequency, fill = Phylum)) +
+    geom_bar(stat = "identity", width = 0.7, color = "black") +
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    scale_fill_manual(values = phyla_colors, name = "Phylum") + # Apply consistent colors
+    labs(title = "Rhizobiome", x = "Location", y = "Relative Frequency (%)", fill = "Phylum") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+      axis.title = element_text(size = 14),
+      plot.title = element_text(size = 16, face = "bold")
+    )
+  # Combine the plots side by side with shared legend
+  combined_plot <- (plot1 + plot2) + 
+    plot_layout(guides = "collect") + 
+    plot_annotation(title = "Comparison of Local Soil and Rhizobiome by Location (Phyla)") &
+    theme(
+      legend.position = "bottom", 
+      legend.title = element_text(size = 12), 
+      legend.text = element_text(size = 10)
+    )
+  # Display combined plot
+  print(combined_plot)
+
+
+
